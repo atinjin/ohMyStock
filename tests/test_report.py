@@ -54,14 +54,16 @@ def test_full_report_metrics_and_validations(tmp_path):
         assert isinstance(m["value"], float)
         assert isinstance(m["display"], str)
 
-    # 명세의 그룹 분해 G2(3)+G3(4)+G4(4)=11 (CLI와 동일)
-    assert len(report["validations"]) == 11
+    # 그룹 분해 G2(3) + G3(5: 과최적화·OOS·WFA·몬테카를로·스트레스) + G4(4) = 12
+    assert len(report["validations"]) == 12
     for v in report["validations"]:
         assert v["group"] in {"G2", "G3", "G4"}
         assert isinstance(v["value"], float)
         assert isinstance(v["passed"], bool)
     groups = [v["group"] for v in report["validations"]]
-    assert groups == ["G2"] * 3 + ["G3"] * 4 + ["G4"] * 4
+    assert groups == ["G2"] * 3 + ["G3"] * 5 + ["G4"] * 4
+    # ② 과최적화가 통합 리포트에 포함됨
+    assert any(v["name"] == "Overfitting" for v in report["validations"])
 
 
 def test_full_report_json_serializable(tmp_path):

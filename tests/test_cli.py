@@ -30,6 +30,7 @@ def test_build_report_contains_metrics(tmp_path):
     assert "Capacity" in report
     # G3 견고성 섹션
     assert "견고성" in report
+    assert "Overfitting" in report
     assert "OutOfSample" in report
     assert "WalkForward" in report
     assert "MonteCarlo" in report

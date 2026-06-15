@@ -47,7 +47,7 @@ def test_backtest_ok(tmp_path):
     assert resp.status_code == 200
     data = resp.json()
     assert len(data["metrics"]) == 6
-    assert len(data["validations"]) == 11
+    assert len(data["validations"]) == 12  # 11 + 과최적화
     assert len(data["equity_curve"]) > 0
 
 

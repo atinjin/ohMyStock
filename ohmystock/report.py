@@ -14,8 +14,22 @@ from ohmystock.core.validation.regime import regime_test
 from ohmystock.core.validation.correlation import correlation
 from ohmystock.core.validation.factor_exposure import factor_exposure
 from ohmystock.core.validation.economic_edge import economic_edge
+from ohmystock.core.validation.overfitting import overfitting
 from ohmystock.core.strategy.ma_crossover import MACrossover
 from ohmystock.core.strategy.momentum import Momentum
+
+
+# 과최적화(②) 검증용 전략별 파라미터 그리드
+_OVERFIT_GRIDS = {
+    "MACrossover": [
+        {"short": 10, "long": 50}, {"short": 20, "long": 60},
+        {"short": 20, "long": 100}, {"short": 50, "long": 150},
+    ],
+    "Momentum": [
+        {"lookback": 60, "top_k": 3}, {"lookback": 90, "top_k": 3},
+        {"lookback": 120, "top_k": 3}, {"lookback": 90, "top_k": 5},
+    ],
+}
 
 
 # 전략 레지스트리: params dict → 전략 인스턴스
@@ -77,10 +91,16 @@ def full_report(symbols, start, end, adapter, strategy, config) -> dict:
         _metric("recovery_factor", "Recovery Factor", rf, f"{rf:.2f}"),
     ]
 
+    strat_name = type(strategy).__name__
+    grid = _OVERFIT_GRIDS.get(strat_name, [])
+    overfit_rep = overfitting(
+        lambda p: build_strategy(strat_name, p), grid, bars, config)
+
     validations = [
         _validation("G2", kelly_criterion(result)),
         _validation("G2", ruin_probability(result)),
         _validation("G2", capacity_analysis(result, bars, config)),
+        _validation("G3", overfit_rep),  # ② 과최적화
         _validation("G3", out_of_sample(result, config)),
         _validation("G3", walk_forward(result, config)),
         _validation("G3", monte_carlo(result)),
