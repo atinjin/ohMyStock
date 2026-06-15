@@ -58,6 +58,30 @@ export interface Report {
   validations: Validation[]
 }
 
+export interface Account {
+  equity: number
+  cash: number
+}
+
+export interface LiveOrder {
+  symbol: string
+  side: 'buy' | 'sell'
+  notional: number
+}
+
+export interface LivePreview {
+  strategy: string
+  symbols: string[]
+  account_before: Account
+  account_after: Account
+  orders: LiveOrder[]
+  risk: {
+    in_breach: boolean
+    drawdown: number
+  }
+  prices: Record<string, number>
+}
+
 interface StrategiesResponse {
   strategies: StrategyInfo[]
 }
@@ -94,4 +118,18 @@ export async function runBacktest(req: BacktestRequest): Promise<Report> {
     return parseError(res)
   }
   return (await res.json()) as Report
+}
+
+export async function getLivePreview(
+  req: BacktestRequest,
+): Promise<LivePreview> {
+  const res = await fetch('/api/live/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  if (!res.ok) {
+    return parseError(res)
+  }
+  return (await res.json()) as LivePreview
 }
