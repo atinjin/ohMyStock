@@ -5,11 +5,19 @@ from ohmystock.core.data.cache import ParquetCache
 _COLS = ["open", "high", "low", "close", "volume"]
 
 
+def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """yfinance가 ('Close','AAPL') 형태의 MultiIndex 컬럼을 주므로 단일 레벨로 평탄화."""
+    if isinstance(df.columns, pd.MultiIndex):
+        df = df.copy()
+        df.columns = df.columns.get_level_values(0)
+    df = df.rename(columns=str.lower)
+    return df[_COLS]
+
+
 def _default_downloader(symbol: str, start: date, end: date) -> pd.DataFrame:
     import yfinance as yf
     df = yf.download(symbol, start=start, end=end, progress=False, auto_adjust=True)
-    df = df.rename(columns=str.lower)
-    return df[_COLS]
+    return _normalize_columns(df)
 
 
 class YFinanceAdapter:

@@ -25,3 +25,18 @@ def test_second_call_uses_cache(tmp_path):
     adapter.get_daily_bars(["AAPL"], date(2024, 1, 1), date(2024, 1, 4))
     adapter.get_daily_bars(["AAPL"], date(2024, 1, 1), date(2024, 1, 4))
     assert calls["n"] == 1   # 두 번째는 캐시
+
+def test_normalize_columns_flattens_multiindex():
+    from ohmystock.core.data.yfinance_adapter import _normalize_columns
+    idx = pd.to_datetime(["2024-01-02", "2024-01-03"])
+    cols = pd.MultiIndex.from_tuples(
+        [("Close", "AAPL"), ("High", "AAPL"), ("Low", "AAPL"),
+         ("Open", "AAPL"), ("Volume", "AAPL")])
+    raw = pd.DataFrame(
+        [[11.0, 12.0, 9.0, 10.0, 100], [12.0, 12.0, 10.0, 11.0, 120]],
+        index=idx, columns=cols)
+    out = _normalize_columns(raw)
+    assert list(out.columns) == ["open", "high", "low", "close", "volume"]
+    import pandas as _pd
+    assert isinstance(out["close"], _pd.Series)
+    assert out["close"].iloc[-1] == 12.0
