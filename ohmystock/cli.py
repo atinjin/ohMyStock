@@ -9,6 +9,10 @@ from ohmystock.core.validation import metrics as M
 from ohmystock.core.validation.kelly import kelly_criterion
 from ohmystock.core.validation.ruin import ruin_probability
 from ohmystock.core.validation.capacity import capacity_analysis
+from ohmystock.core.validation.out_of_sample import out_of_sample
+from ohmystock.core.validation.walk_forward import walk_forward
+from ohmystock.core.validation.monte_carlo import monte_carlo
+from ohmystock.core.validation.stress import stress_test
 
 
 def _vline(rep) -> str:
@@ -48,6 +52,12 @@ def build_report(symbols, start, end, adapter, strategy, config) -> str:
     lines.append(_vline(kelly_criterion(result)))         # ⑨
     lines.append(_vline(ruin_probability(result)))        # ⑯
     lines.append(_vline(capacity_analysis(result, bars, config)))  # ⑧
+    lines.append("-" * 48)
+    lines.append("견고성 (G3)")
+    lines.append(_vline(out_of_sample(result, config)))   # ④
+    lines.append(_vline(walk_forward(result, config)))    # ③
+    lines.append(_vline(monte_carlo(result)))             # ⑤
+    lines.append(_vline(stress_test(result)))             # ⑥
     lines.append("=" * 48)
     return "\n".join(lines)
 

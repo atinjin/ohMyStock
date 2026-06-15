@@ -28,3 +28,9 @@ def test_build_report_contains_metrics(tmp_path):
     assert "Kelly" in report
     assert "RuinProbability" in report
     assert "Capacity" in report
+    # G3 견고성 섹션
+    assert "견고성" in report
+    assert "OutOfSample" in report
+    assert "WalkForward" in report
+    assert "MonteCarlo" in report
+    assert "StressTest" in report
