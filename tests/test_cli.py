@@ -23,3 +23,8 @@ def test_build_report_contains_metrics(tmp_path):
     assert "Sharpe" in report
     assert "Profit Factor" in report
     assert "데이터 검증" in report
+    # G2 자금·리스크 섹션
+    assert "자금·리스크" in report
+    assert "Kelly" in report
+    assert "RuinProbability" in report
+    assert "Capacity" in report
