@@ -6,6 +6,15 @@ from ohmystock.core.data.validation import validate_bars
 from ohmystock.core.strategy.ma_crossover import MACrossover
 from ohmystock.core.backtest.engine import run_backtest
 from ohmystock.core.validation import metrics as M
+from ohmystock.core.validation.kelly import kelly_criterion
+from ohmystock.core.validation.ruin import ruin_probability
+from ohmystock.core.validation.capacity import capacity_analysis
+
+
+def _vline(rep) -> str:
+    """ValidationReport 한 줄 포맷."""
+    mark = "✓" if rep.passed else "✗"
+    return f"  {mark} {rep.name}: {rep.message}"
 
 
 def build_report(symbols, start, end, adapter, strategy, config) -> str:
@@ -18,6 +27,7 @@ def build_report(symbols, start, end, adapter, strategy, config) -> str:
     lines.append("=" * 48)
     lines.append("OhMyStock 백테스트 리포트")
     lines.append("=" * 48)
+    lines.append(f"전략: {type(strategy).__name__}")
     lines.append(f"종목: {', '.join(symbols)}  기간: {start} ~ {end}")
     lines.append(f"데이터 검증: {'통과' if dv.passed else '실패'}")
     for w in dv.warnings:
@@ -33,6 +43,11 @@ def build_report(symbols, start, end, adapter, strategy, config) -> str:
     lines.append(f"  ⑬ Calmar         : {M.calmar_ratio(result, config):.2f}")
     lines.append(f"  ⑭ Profit Factor  : {M.profit_factor(result):.2f}")
     lines.append(f"  ⑮ Recovery Factor: {M.recovery_factor(result):.2f}")
+    lines.append("-" * 48)
+    lines.append("자금·리스크 (G2)")
+    lines.append(_vline(kelly_criterion(result)))         # ⑨
+    lines.append(_vline(ruin_probability(result)))        # ⑯
+    lines.append(_vline(capacity_analysis(result, bars, config)))  # ⑧
     lines.append("=" * 48)
     return "\n".join(lines)
 
