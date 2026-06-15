@@ -9,6 +9,7 @@ from ohmystock.config import Config
 from ohmystock.core.data.cache import ParquetCache
 from ohmystock.core.data.yfinance_adapter import YFinanceAdapter
 from ohmystock import report
+from ohmystock.live import live_preview
 
 
 class BacktestRequest(BaseModel):
@@ -65,6 +66,21 @@ def create_app(adapter=None) -> FastAPI:
 
         config = Config(initial_capital=req.capital)
         return report.full_report(
+            symbols=req.symbols, start=start, end=end,
+            adapter=app.state.adapter, strategy=strategy, config=config)
+
+    @app.post("/api/live/preview")
+    def live_preview_endpoint(req: BacktestRequest):
+        """오늘자 목표 리밸런싱 주문 미리보기(페이퍼 — 실주문 없음)."""
+        try:
+            strategy = report.build_strategy(req.strategy, req.params)
+            start = date.fromisoformat(req.start)
+            end = date.fromisoformat(req.end)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        config = Config(initial_capital=req.capital)
+        return live_preview(
             symbols=req.symbols, start=start, end=end,
             adapter=app.state.adapter, strategy=strategy, config=config)
 

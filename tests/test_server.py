@@ -60,3 +60,20 @@ def test_backtest_unknown_strategy(tmp_path):
     }
     resp = _client(tmp_path).post("/api/backtest", json=body)
     assert resp.status_code == 400
+
+
+def test_live_preview_ok(tmp_path):
+    body = {
+        "strategy": "Momentum",
+        "params": {"lookback": 20, "top_k": 2},
+        "symbols": ["AAPL", "MSFT", "GOOGL"],
+        "start": "2024-01-01",
+        "end": "2024-06-30",
+    }
+    resp = _client(tmp_path).post("/api/live/preview", json=body)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["strategy"] == "Momentum"
+    assert "orders" in data
+    assert "risk" in data
+    assert "account_before" in data

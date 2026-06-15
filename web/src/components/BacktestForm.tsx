@@ -9,6 +9,7 @@ interface Props {
   strategies: StrategyInfo[]
   loading: boolean
   onRun: (req: BacktestRequest) => void
+  onPreview?: (req: BacktestRequest) => void
 }
 
 const DEFAULT_SYMBOLS = 'AAPL,MSFT,GOOGL,AMZN,META'
@@ -27,7 +28,12 @@ function coerceParam(original: ParamValue, raw: string): ParamValue {
   return raw
 }
 
-export default function BacktestForm({ strategies, loading, onRun }: Props) {
+export default function BacktestForm({
+  strategies,
+  loading,
+  onRun,
+  onPreview,
+}: Props) {
   const [strategyName, setStrategyName] = useState('')
   const [params, setParams] = useState<Record<string, ParamValue>>({})
   const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS)
@@ -60,21 +66,32 @@ export default function BacktestForm({ strategies, loading, onRun }: Props) {
     }))
   }
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!strategyName) return
+  function buildRequest(): BacktestRequest | null {
+    if (!strategyName) return null
     const parsedSymbols = symbols
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
-    onRun({
+    return {
       strategy: strategyName,
       params,
       symbols: parsedSymbols,
       start,
       end,
       capital,
-    })
+    }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    const req = buildRequest()
+    if (req) onRun(req)
+  }
+
+  function handlePreview() {
+    if (!onPreview) return
+    const req = buildRequest()
+    if (req) onPreview(req)
   }
 
   return (
@@ -172,6 +189,17 @@ export default function BacktestForm({ strategies, loading, onRun }: Props) {
       <button type="submit" className="run-btn" disabled={loading || !strategyName}>
         {loading ? '실행 중…' : '백테스트 실행'}
       </button>
+
+      {onPreview && (
+        <button
+          type="button"
+          className="preview-btn"
+          onClick={handlePreview}
+          disabled={loading || !strategyName}
+        >
+          오늘 주문 미리보기
+        </button>
+      )}
     </form>
   )
 }
