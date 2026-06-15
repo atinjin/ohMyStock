@@ -13,6 +13,11 @@ from ohmystock.core.validation.out_of_sample import out_of_sample
 from ohmystock.core.validation.walk_forward import walk_forward
 from ohmystock.core.validation.monte_carlo import monte_carlo
 from ohmystock.core.validation.stress import stress_test
+from ohmystock.core.validation._market import equal_weight_benchmark
+from ohmystock.core.validation.regime import regime_test
+from ohmystock.core.validation.correlation import correlation
+from ohmystock.core.validation.factor_exposure import factor_exposure
+from ohmystock.core.validation.economic_edge import economic_edge
 
 
 def _vline(rep) -> str:
@@ -58,6 +63,13 @@ def build_report(symbols, start, end, adapter, strategy, config) -> str:
     lines.append(_vline(walk_forward(result, config)))    # ③
     lines.append(_vline(monte_carlo(result)))             # ⑤
     lines.append(_vline(stress_test(result)))             # ⑥
+    lines.append("-" * 48)
+    lines.append("시장구조 (G4)")
+    benchmark = equal_weight_benchmark(bars)
+    lines.append(_vline(regime_test(result, benchmark)))            # ⑰
+    lines.append(_vline(correlation(result, benchmark)))           # ⑱
+    lines.append(_vline(factor_exposure(result, {"market": benchmark})))  # ⑲
+    lines.append(_vline(economic_edge(result, benchmark, config)))  # ⑳
     lines.append("=" * 48)
     return "\n".join(lines)
 

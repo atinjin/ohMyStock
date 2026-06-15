@@ -34,3 +34,9 @@ def test_build_report_contains_metrics(tmp_path):
     assert "WalkForward" in report
     assert "MonteCarlo" in report
     assert "StressTest" in report
+    # G4 시장구조 섹션
+    assert "시장구조" in report
+    assert "Regime" in report
+    assert "Correlation" in report
+    assert "FactorExposure" in report
+    assert "EconomicEdge" in report
