@@ -5,6 +5,8 @@ import type {
   StrategyInfo,
 } from '../api'
 import InfoButton from './InfoButton'
+import SymbolPicker from './SymbolPicker'
+import { addRecentSymbols } from '../history'
 
 interface Props {
   strategies: StrategyInfo[]
@@ -13,7 +15,7 @@ interface Props {
   onPreview?: (req: BacktestRequest) => void
 }
 
-const DEFAULT_SYMBOLS = 'AAPL,MSFT,GOOGL,AMZN,META'
+const DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META']
 const DEFAULT_START = '2020-01-01'
 const DEFAULT_END = '2024-01-01'
 const DEFAULT_CAPITAL = 5_000_000
@@ -37,7 +39,7 @@ export default function BacktestForm({
 }: Props) {
   const [strategyName, setStrategyName] = useState('')
   const [params, setParams] = useState<Record<string, ParamValue>>({})
-  const [symbols, setSymbols] = useState(DEFAULT_SYMBOLS)
+  const [symbols, setSymbols] = useState<string[]>(DEFAULT_SYMBOLS)
   const [start, setStart] = useState(DEFAULT_START)
   const [end, setEnd] = useState(DEFAULT_END)
   const [capital, setCapital] = useState(DEFAULT_CAPITAL)
@@ -69,14 +71,11 @@ export default function BacktestForm({
 
   function buildRequest(): BacktestRequest | null {
     if (!strategyName) return null
-    const parsedSymbols = symbols
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
+    addRecentSymbols(symbols)
     return {
       strategy: strategyName,
       params,
-      symbols: parsedSymbols,
+      symbols,
       start,
       end,
       capital,
@@ -149,16 +148,10 @@ export default function BacktestForm({
         </fieldset>
       )}
 
-      <label className="field">
-        <span className="field-label">종목 (쉼표 구분)</span>
-        <input
-          type="text"
-          value={symbols}
-          onChange={(e) => setSymbols(e.target.value)}
-          placeholder="AAPL, MSFT"
-          disabled={loading}
-        />
-      </label>
+      <div className="field">
+        <span className="field-label">종목</span>
+        <SymbolPicker value={symbols} onChange={setSymbols} disabled={loading} />
+      </div>
 
       <div className="field-row">
         <label className="field">
@@ -193,7 +186,11 @@ export default function BacktestForm({
         />
       </label>
 
-      <button type="submit" className="run-btn" disabled={loading || !strategyName}>
+      <button
+        type="submit"
+        className="run-btn"
+        disabled={loading || !strategyName || symbols.length === 0}
+      >
         {loading ? '실행 중…' : '백테스트 실행'}
       </button>
 
@@ -202,7 +199,7 @@ export default function BacktestForm({
           type="button"
           className="preview-btn"
           onClick={handlePreview}
-          disabled={loading || !strategyName}
+          disabled={loading || !strategyName || symbols.length === 0}
         >
           오늘 주문 미리보기
         </button>
