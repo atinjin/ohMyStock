@@ -48,6 +48,20 @@ export default function SymbolPicker({ value, onChange, disabled }: Props) {
     return out
   }, [query, selected])
 
+  // Catalog picks shown on focus when the input is empty, so the dropdown is
+  // useful immediately even with no history. Fills the slots left by `recent`.
+  const popular = useMemo<SymbolInfo[]>(() => {
+    if (query.trim()) return []
+    const recentSet = new Set(recent.map((r) => r.symbol))
+    const out: SymbolInfo[] = []
+    for (const info of SYMBOLS) {
+      if (selected.has(info.symbol) || recentSet.has(info.symbol)) continue
+      out.push(info)
+      if (recent.length + out.length >= MAX_SUGGESTIONS) break
+    }
+    return out
+  }, [query, selected, recent])
+
   function addSymbol(raw: string) {
     const symbol = raw.trim().toUpperCase()
     if (!symbol || selected.has(symbol)) return
@@ -73,7 +87,30 @@ export default function SymbolPicker({ value, onChange, disabled }: Props) {
     }
   }
 
-  const showDropdown = focused && (suggestions.length > 0 || recent.length > 0)
+  const showDropdown =
+    focused &&
+    (query.trim()
+      ? suggestions.length > 0
+      : recent.length > 0 || popular.length > 0)
+
+  const renderItem = (info: SymbolInfo) => (
+    <li key={info.symbol}>
+      <button
+        type="button"
+        className="symbol-suggest-item"
+        // onMouseDown fires before input blur, keeping focus stable.
+        onMouseDown={(e) => {
+          e.preventDefault()
+          addSymbol(info.symbol)
+        }}
+      >
+        <span className="symbol-suggest-code">{info.symbol}</span>
+        {info.name && (
+          <span className="symbol-suggest-name">{info.name}</span>
+        )}
+      </button>
+    </li>
+  )
 
   return (
     <div className="symbol-picker">
@@ -122,42 +159,21 @@ export default function SymbolPicker({ value, onChange, disabled }: Props) {
       {showDropdown && (
         <ul className="symbol-suggest">
           {query.trim() ? (
-            suggestions.map((info) => (
-              <li key={info.symbol}>
-                <button
-                  type="button"
-                  className="symbol-suggest-item"
-                  // onMouseDown fires before input blur, keeping focus stable.
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    addSymbol(info.symbol)
-                  }}
-                >
-                  <span className="symbol-suggest-code">{info.symbol}</span>
-                  <span className="symbol-suggest-name">{info.name}</span>
-                </button>
-              </li>
-            ))
+            suggestions.map(renderItem)
           ) : (
             <>
-              <li className="symbol-suggest-head">최근 사용</li>
-              {recent.map((info) => (
-                <li key={info.symbol}>
-                  <button
-                    type="button"
-                    className="symbol-suggest-item"
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      addSymbol(info.symbol)
-                    }}
-                  >
-                    <span className="symbol-suggest-code">{info.symbol}</span>
-                    {info.name && (
-                      <span className="symbol-suggest-name">{info.name}</span>
-                    )}
-                  </button>
-                </li>
-              ))}
+              {recent.length > 0 && (
+                <>
+                  <li className="symbol-suggest-head">최근 사용</li>
+                  {recent.map(renderItem)}
+                </>
+              )}
+              {popular.length > 0 && (
+                <>
+                  <li className="symbol-suggest-head">추천 종목</li>
+                  {popular.map(renderItem)}
+                </>
+              )}
             </>
           )}
         </ul>
