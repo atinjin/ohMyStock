@@ -60,3 +60,35 @@ def test_repeated_steps_build_equity_and_trades(tmp_path):
     assert store.load_account().cursor_date == bars["AAPL"].index[-1].strftime("%Y-%m-%d")
     assert len(store.trades()) >= 1
     assert snaps[-1]["equity"] > 1_000_000
+
+
+def test_multi_symbol_run_to_end_no_crash(tmp_path):
+    # 다종목 풀투자: 순차 매수의 부동소수점 누적으로 크래시하면 안 된다(Bug 1 회귀)
+    syms = ["AAPL", "MSFT", "GOOGL", "AMZN"]
+    acct = PaperAccount(
+        strategy="MACrossover", params={"short": 3, "long": 10},
+        symbols=syms, initial_capital=1_000_000,
+        start_date="2024-01-01", end_date="2024-03-31",
+        cursor_date=None, cash=1_000_000, peak_equity=1_000_000)
+    store = SqlitePaperStore(tmp_path / "p.db")
+    store.initialize(acct)
+    bars = _bars(syms, 60)
+    steps = 0
+    while True:
+        a = store.load_account()
+        if engine.step(a, store, bars, Config()) is None:
+            break
+        steps += 1
+        assert steps < 200  # 무한 루프 방지
+    assert store.load_account().cursor_date == bars["AAPL"].index[-1].strftime("%Y-%m-%d")
+    assert len(store.snapshots()) == steps
+
+
+def test_held_symbol_without_price_is_skipped(tmp_path):
+    # 보유 포지션에 가격 없는 종목(유령)이 있어도 step이 예외 없이 진행(Bug 2)
+    acct, store = _fresh(tmp_path)
+    bars = _bars(["AAPL"], 40)
+    engine.step(store.load_account(), store, bars, Config())  # 첫 스텝
+    store.save_positions({"AAPL": 1.0, "GHOST": 5.0})  # 유령 포지션 주입
+    res = engine.step(store.load_account(), store, bars, Config())
+    assert res is not None  # 예외 없이 진행

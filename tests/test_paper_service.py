@@ -58,3 +58,24 @@ def test_step_without_account_raises(tmp_path):
     svc = _service(tmp_path)
     with pytest.raises(ValueError):
         svc.step()
+
+
+def test_restart_continuity(tmp_path):
+    # 새 store 인스턴스로 같은 DB를 열어 이어서 진행해도 상태가 연속(영속화 핵심)
+    db = tmp_path / "p.db"
+    svc1 = PaperService(SqlitePaperStore(db), FakeAdapter(40), Config())
+    svc1.init_account("MACrossover", {"short": 3, "long": 10}, ["AAPL"],
+                      1_000_000, "2024-01-01", "2024-03-31")
+    for _ in range(5):
+        svc1.step()
+    state1 = svc1.get_state()
+
+    # 재시작: 완전히 새 서비스/스토어 인스턴스
+    svc2 = PaperService(SqlitePaperStore(db), FakeAdapter(40), Config())
+    state2 = svc2.get_state()
+    assert state2["cursor_date"] == state1["cursor_date"]
+    assert state2["peak_equity"] == state1["peak_equity"]
+    assert state2["equity"] == state1["equity"]
+    # 이어서 끝까지 진행
+    svc2.run()
+    assert svc2.get_state()["cursor_date"] == "2024-02-23"  # FakeAdapter 40 영업일의 마지막

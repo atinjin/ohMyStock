@@ -31,13 +31,14 @@ class PaperBroker:
     def submit_order(self, order: Order) -> None:
         price = self._price(order.symbol)
         if order.side == "buy":
-            if self.cash < order.notional:
+            if self.cash < order.notional - 1e-6:
                 raise ValueError(
                     f"현금 부족: 필요 {order.notional}, 보유 {self.cash}"
                 )
-            self.cash -= order.notional
+            spend = min(order.notional, self.cash)  # 부동소수점 미세 초과는 가용현금으로 클램프
+            self.cash -= spend
             self.shares[order.symbol] = (
-                self.shares.get(order.symbol, 0.0) + order.notional / price
+                self.shares.get(order.symbol, 0.0) + spend / price
             )
         elif order.side == "sell":
             held = self.shares.get(order.symbol, 0.0)

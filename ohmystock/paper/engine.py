@@ -32,12 +32,15 @@ def step(account, store, bars: dict, config):
         return None
 
     sliced = {sym: df[df.index <= d] for sym, df in bars.items()}
-    broker = PaperBroker(cash=account.cash)
-    broker.shares = dict(store.load_positions())
     prices = {
         sym: float(panel.loc[d, sym])
         for sym in panel.columns
         if pd.notna(panel.loc[d, sym])
+    }
+    broker = PaperBroker(cash=account.cash)
+    # 가격을 아는 보유 종목만 복원(유니버스 축소/데이터 공백 시 _price 예외 방지)
+    broker.shares = {
+        sym: qty for sym, qty in store.load_positions().items() if sym in prices
     }
     broker.set_prices(prices)
 
