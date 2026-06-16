@@ -33,20 +33,19 @@
 - [x] `Makefile` (서버 start/stop/status/logs)
 - [x] CLI 리포트 / 실거래 드라이런(`live.py`)
 
+### 페이퍼 트레이딩 상태 영속화 ✅ ([spec](superpowers/specs/2026-06-16-paper-persistence-design.md) · [plan](superpowers/plans/2026-06-17-paper-persistence.md))
+캘린더 재생 + SQLite 영속 + CLI·대시보드. 모의 계좌를 하루씩 전진시키며 보유·현금·자산곡선을 저장(껐다 켜도 이어짐).
+- [x] `PaperAccount` DTO + `PaperStore` 인터페이스 + `SqlitePaperStore`
+- [x] 스텝 엔진 (캘린더 커서·rebalance·트랜잭션 기록) + `PaperService`(init/step/run/state/history)
+- [x] CLI (`python -m ohmystock.paper` init/step/run/status)
+- [x] `/api/paper/*` 엔드포인트 + 대시보드 "페이퍼 계좌" 패널
+- [x] 실데이터 스모크(1006스텝 무크래시) + main 머지
+
 ---
 
 ## 3. 진행 중 🔄
 
-### 페이퍼 트레이딩 상태 영속화 (🔴, [spec](superpowers/specs/2026-06-16-paper-persistence-design.md) · [plan](superpowers/plans/2026-06-17-paper-persistence.md))
-캘린더 재생 + SQLite 영속 + CLI·대시보드. 모의 계좌를 하루씩 전진시키며 보유·현금·자산곡선을 저장.
-- [x] `PaperAccount` DTO + `PaperStore` 인터페이스
-- [x] `SqlitePaperStore` (account/positions/snapshots/trades)
-- [x] 스텝 엔진 (캘린더 커서·rebalance·트랜잭션 기록)
-- [ ] `PaperService` (init/step/run/state/history)
-- [ ] CLI (`python -m ohmystock.paper` init/step/run/status)
-- [ ] `/api/paper/*` 엔드포인트
-- [ ] 대시보드 "페이퍼 계좌" 패널(자산곡선·보유·거래·스텝/실행/초기화)
-- [ ] 실데이터 스모크 + main 머지
+(없음)
 
 ---
 
