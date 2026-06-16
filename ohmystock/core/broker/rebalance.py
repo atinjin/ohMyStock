@@ -20,7 +20,7 @@ def rebalance(
 
     positions = broker.get_positions()  # 종목 -> 현재 평가 금액
 
-    symbols = set(target_weights.index) | set(positions.keys())
+    symbols = sorted(set(target_weights.index) | set(positions.keys()))
     threshold = max(1e-6 * equity, 1.0)
 
     orders: list[Order] = []
@@ -40,6 +40,8 @@ def rebalance(
         orders, equity, max_position_notional=max_position_notional
     )
 
-    for order in orders:
+    # 매도를 먼저 체결해 현금을 확보한 뒤 매수: 다종목 풀투자 시 현금 부족 방지
+    submit_order = sorted(orders, key=lambda o: 0 if o.side == "sell" else 1)
+    for order in submit_order:
         broker.submit_order(order)
     return orders

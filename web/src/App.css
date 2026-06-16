@@ -865,6 +865,20 @@
   }
 }
 
+/* Paper account ---------------------------------------------------------- */
+.paper-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.paper-config {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
 /* Responsive ------------------------------------------------------------- */
 @media (max-width: 900px) {
   .app-body {

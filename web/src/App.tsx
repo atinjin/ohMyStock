@@ -14,6 +14,7 @@ import { ConceptProvider } from './components/ConceptModal'
 import EquityChart from './components/EquityChart'
 import LivePreview from './components/LivePreview'
 import MetricsGrid from './components/MetricsGrid'
+import PaperPanel from './components/PaperPanel'
 import ScoreCard from './components/ScoreCard'
 
 const currency = new Intl.NumberFormat('ko-KR', {
@@ -31,6 +32,7 @@ function App() {
   const [preview, setPreview] = useState<LivePreviewData | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
+  const [lastRequest, setLastRequest] = useState<BacktestRequest | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -51,6 +53,7 @@ function App() {
   }, [])
 
   async function handleRun(req: BacktestRequest) {
+    setLastRequest(req)
     setLoading(true)
     setError(null)
     try {
@@ -65,6 +68,7 @@ function App() {
   }
 
   async function handlePreview(req: BacktestRequest) {
+    setLastRequest(req)
     setPreviewLoading(true)
     setPreviewError(null)
     try {
@@ -158,6 +162,8 @@ function App() {
               />
             </>
           )}
+
+          <PaperPanel request={lastRequest} />
         </main>
       </div>
       </div>

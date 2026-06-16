@@ -10,6 +10,8 @@ from ohmystock.core.data.cache import ParquetCache
 from ohmystock.core.data.yfinance_adapter import YFinanceAdapter
 from ohmystock import report
 from ohmystock.live import live_preview
+from ohmystock.paper.service import PaperService
+from ohmystock.paper.sqlite_store import SqlitePaperStore
 
 
 class BacktestRequest(BaseModel):
@@ -21,6 +23,11 @@ class BacktestRequest(BaseModel):
     capital: float = 5_000_000
 
 
+class RunRequest(BaseModel):
+    steps: int | None = None
+    to: str | None = None
+
+
 # 전략별 기본 파라미터 (GET /api/strategies 응답용)
 _STRATEGY_DEFAULTS = {
     "MACrossover": {"short": 20, "long": 60},
@@ -28,12 +35,13 @@ _STRATEGY_DEFAULTS = {
 }
 
 
-def create_app(adapter=None) -> FastAPI:
+def create_app(adapter=None, paper_db="state/paper.db") -> FastAPI:
     if adapter is None:
         adapter = YFinanceAdapter(cache=ParquetCache(".cache"))
 
     app = FastAPI(title="OhMyStock API")
     app.state.adapter = adapter
+    app.state.paper_db = paper_db
 
     app.add_middleware(
         CORSMiddleware,
@@ -83,6 +91,45 @@ def create_app(adapter=None) -> FastAPI:
         return live_preview(
             symbols=req.symbols, start=start, end=end,
             adapter=app.state.adapter, strategy=strategy, config=config)
+
+    def _paper_service() -> PaperService:
+        return PaperService(SqlitePaperStore(app.state.paper_db), app.state.adapter, Config())
+
+    @app.post("/api/paper/init")
+    def paper_init(req: BacktestRequest):
+        try:
+            date.fromisoformat(req.start)
+            date.fromisoformat(req.end)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        svc = _paper_service()
+        svc.init_account(req.strategy, req.params, req.symbols, req.capital,
+                         req.start, req.end)
+        return svc.get_state()
+
+    @app.post("/api/paper/step")
+    def paper_step():
+        try:
+            res = _paper_service().step()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return res if res is not None else {"done": True}
+
+    @app.post("/api/paper/run")
+    def paper_run(req: RunRequest):
+        try:
+            results = _paper_service().run(steps=req.steps, to=req.to)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        return {"results": results}
+
+    @app.get("/api/paper/state")
+    def paper_state():
+        return _paper_service().get_state()
+
+    @app.get("/api/paper/history")
+    def paper_history():
+        return _paper_service().get_history()
 
     return app
 
