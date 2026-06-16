@@ -76,17 +76,20 @@ export default function ScoreCard({ validations, dataValidation }: Props) {
               <span className="score-group-tag">{group}</span>
               {GROUP_LABELS[group]}
             </h3>
-            <ul className="score-rows">
+            <ul className="score-grid">
               {rows.map((v) => (
-                <li key={v.name} className="score-row">
-                  <Badge passed={v.passed} />
-                  <div className="score-row-body">
-                    <span className="score-row-name">
-                      {v.name}
-                      <InfoButton conceptKey={v.name} />
-                    </span>
-                    <span className="score-row-message">{v.message}</span>
+                <li
+                  key={v.name}
+                  className={`score-item ${
+                    v.passed ? 'score-item-pass' : 'score-item-fail'
+                  }`}
+                >
+                  <div className="score-item-head">
+                    <span className="score-item-name">{v.name}</span>
+                    <InfoButton conceptKey={v.name} />
+                    <Badge passed={v.passed} />
                   </div>
+                  <span className="score-item-message">{v.message}</span>
                 </li>
               ))}
             </ul>

@@ -495,40 +495,56 @@
   font-family: var(--mono);
 }
 
-.score-rows {
+.score-grid {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.score-row {
-  display: flex;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
 }
 
-.score-row-body {
+.score-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
 }
 
-.score-row-name {
-  font-weight: 600;
+/* 상태를 카드 색으로 표시 */
+.score-item-pass {
+  background: var(--pass-bg);
+  border-color: var(--pass);
+  border-left-color: var(--pass);
+}
+
+.score-item-fail {
+  background: var(--fail-bg);
+  border-color: var(--fail);
+  border-left-color: var(--fail);
+}
+
+.score-item-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.score-item-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
   font-size: 14px;
 }
 
-.score-row-message {
-  font-size: 13px;
+.score-item-message {
+  font-size: 12.5px;
   color: var(--text-dim);
+  line-height: 1.5;
 }
 
 /* Info button + concept modal -------------------------------------------- */
