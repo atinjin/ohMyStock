@@ -3,6 +3,7 @@ import type {
   Validation,
   ValidationGroup,
 } from '../api'
+import InfoButton from './InfoButton'
 
 interface Props {
   validations: Validation[]
@@ -48,6 +49,7 @@ export default function ScoreCard({ validations, dataValidation }: Props) {
           <span>
             데이터 검증 {dataValidation.passed ? '통과' : '실패'}
           </span>
+          <InfoButton conceptKey="data_validation" />
         </div>
         {dataValidation.issues.length > 0 && (
           <ul className="data-banner-list issues">
@@ -79,7 +81,10 @@ export default function ScoreCard({ validations, dataValidation }: Props) {
                 <li key={v.name} className="score-row">
                   <Badge passed={v.passed} />
                   <div className="score-row-body">
-                    <span className="score-row-name">{v.name}</span>
+                    <span className="score-row-name">
+                      {v.name}
+                      <InfoButton conceptKey={v.name} />
+                    </span>
                     <span className="score-row-message">{v.message}</span>
                   </div>
                 </li>

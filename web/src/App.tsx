@@ -10,6 +10,7 @@ import {
   type StrategyInfo,
 } from './api'
 import BacktestForm from './components/BacktestForm'
+import { ConceptProvider } from './components/ConceptModal'
 import EquityChart from './components/EquityChart'
 import LivePreview from './components/LivePreview'
 import MetricsGrid from './components/MetricsGrid'
@@ -80,7 +81,8 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <ConceptProvider>
+      <div className="app">
       <header className="app-header">
         <h1>OhMyStock — 전략 검증 대시보드</h1>
       </header>
@@ -158,7 +160,8 @@ function App() {
           )}
         </main>
       </div>
-    </div>
+      </div>
+    </ConceptProvider>
   )
 }
 

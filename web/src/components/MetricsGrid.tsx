@@ -1,4 +1,5 @@
 import type { Metric } from '../api'
+import InfoButton from './InfoButton'
 
 interface Props {
   metrics: Metric[]
@@ -11,7 +12,10 @@ export default function MetricsGrid({ metrics }: Props) {
       <div className="metrics-grid">
         {metrics.map((m) => (
           <div key={m.key} className="metric-card">
-            <div className="metric-label">{m.label}</div>
+            <div className="metric-label">
+              <span>{m.label}</span>
+              <InfoButton conceptKey={m.key} />
+            </div>
             <div className="metric-value">{m.display}</div>
           </div>
         ))}

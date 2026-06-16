@@ -4,6 +4,7 @@ import type {
   ParamValue,
   StrategyInfo,
 } from '../api'
+import InfoButton from './InfoButton'
 
 interface Props {
   strategies: StrategyInfo[]
@@ -99,7 +100,10 @@ export default function BacktestForm({
       <h2 className="card-title">백테스트 설정</h2>
 
       <label className="field">
-        <span className="field-label">전략</span>
+        <span className="field-label">
+          전략
+          {strategyName && <InfoButton conceptKey={strategyName} />}
+        </span>
         <select
           value={strategyName}
           onChange={(e) => setStrategyName(e.target.value)}
@@ -120,7 +124,10 @@ export default function BacktestForm({
           <div className="param-grid">
             {Object.entries(params).map(([key, value]) => (
               <label key={key} className="field">
-                <span className="field-sublabel">{key}</span>
+                <span className="field-sublabel">
+                  {key}
+                  <InfoButton conceptKey={key} />
+                </span>
                 {typeof value === 'boolean' ? (
                   <select
                     value={String(value)}
