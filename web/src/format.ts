@@ -1,0 +1,28 @@
+// 금액 포맷 헬퍼.
+
+/** 천 단위 콤마 (예: 5000000 -> "5,000,000"). 음수/소수는 버림. */
+export function withCommas(n: number): string {
+  return Math.floor(Math.max(0, n)).toLocaleString('en-US')
+}
+
+/** 원화 금액을 한글 단위로 읽어준다 (예: 500000000 -> "5억원", 5000000 -> "500만원"). */
+export function koreanAmount(n: number): string {
+  const v = Math.floor(n)
+  if (!Number.isFinite(v) || v <= 0) return '0원'
+  const units: { value: number; label: string }[] = [
+    { value: 1_0000_0000_0000, label: '조' },
+    { value: 1_0000_0000, label: '억' },
+    { value: 1_0000, label: '만' },
+    { value: 1, label: '' },
+  ]
+  let rem = v
+  const parts: string[] = []
+  for (const { value, label } of units) {
+    const g = Math.floor(rem / value)
+    if (g > 0) {
+      parts.push(`${g.toLocaleString('en-US')}${label}`)
+      rem -= g * value
+    }
+  }
+  return parts.join(' ') + '원'
+}

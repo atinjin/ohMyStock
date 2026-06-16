@@ -180,6 +180,35 @@
   cursor: not-allowed;
 }
 
+/* 초기 자본 입력 ---------------------------------------------------------- */
+.capital-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.capital-input input {
+  flex: 1;
+  min-width: 0;
+}
+
+.capital-suffix {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.capital-reading {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.capital-reading strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* Symbol picker ---------------------------------------------------------- */
 .symbol-picker {
   position: relative;

@@ -7,6 +7,7 @@ import type {
 import InfoButton from './InfoButton'
 import SymbolPicker from './SymbolPicker'
 import { addRecentSymbols } from '../history'
+import { withCommas, koreanAmount } from '../format'
 
 interface Props {
   strategies: StrategyInfo[]
@@ -155,7 +156,10 @@ export default function BacktestForm({
 
       <div className="field-row">
         <label className="field">
-          <span className="field-label">시작일</span>
+          <span className="field-label">
+            시작일
+            <InfoButton conceptKey="start_date" />
+          </span>
           <input
             type="date"
             value={start}
@@ -164,7 +168,10 @@ export default function BacktestForm({
           />
         </label>
         <label className="field">
-          <span className="field-label">종료일</span>
+          <span className="field-label">
+            종료일
+            <InfoButton conceptKey="end_date" />
+          </span>
           <input
             type="date"
             value={end}
@@ -176,14 +183,22 @@ export default function BacktestForm({
 
       <label className="field">
         <span className="field-label">초기 자본</span>
-        <input
-          type="number"
-          value={capital}
-          min={0}
-          step={100000}
-          onChange={(e) => setCapital(Number(e.target.value))}
-          disabled={loading}
-        />
+        <div className="capital-input">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={capital === 0 ? '' : withCommas(capital)}
+            placeholder="0"
+            onChange={(e) =>
+              setCapital(Number(e.target.value.replace(/[^0-9]/g, '')))
+            }
+            disabled={loading}
+          />
+          <span className="capital-suffix">원</span>
+        </div>
+        <span className="capital-reading">
+          = <strong>{koreanAmount(capital)}</strong>
+        </span>
       </label>
 
       <button
