@@ -133,3 +133,89 @@ export async function getLivePreview(
   }
   return (await res.json()) as LivePreview
 }
+
+// Paper account types and client functions
+
+export interface PaperPosition {
+  symbol: string
+  shares: number
+}
+
+export interface PaperState {
+  exists: boolean
+  config?: {
+    strategy: string
+    params: Record<string, ParamValue>
+    symbols: string[]
+    initial_capital: number
+    start: string
+    end: string
+  }
+  cursor_date?: string | null
+  cash?: number
+  equity?: number
+  peak_equity?: number
+  positions?: PaperPosition[]
+  in_breach?: boolean
+  drawdown?: number
+}
+
+export interface PaperTrade {
+  date: string
+  symbol: string
+  side: string
+  notional: number
+  price: number
+  shares: number
+}
+
+export interface PaperHistory {
+  snapshots: { date: string; equity: number; cash: number }[]
+  trades: PaperTrade[]
+}
+
+export function getPaperState(): Promise<PaperState> {
+  return fetch('/api/paper/state').then((r) => r.json() as Promise<PaperState>)
+}
+
+export function getPaperHistory(): Promise<PaperHistory> {
+  return fetch('/api/paper/history').then((r) => r.json() as Promise<PaperHistory>)
+}
+
+export async function initPaper(req: BacktestRequest): Promise<PaperState> {
+  const r = await fetch('/api/paper/init', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  if (!r.ok) {
+    const body = (await r.json()) as { detail?: string }
+    throw new Error(body.detail ?? '초기화 실패')
+  }
+  return r.json() as Promise<PaperState>
+}
+
+export async function stepPaper(): Promise<{ done?: boolean; date?: string }> {
+  const r = await fetch('/api/paper/step', { method: 'POST' })
+  if (!r.ok) {
+    const body = (await r.json()) as { detail?: string }
+    throw new Error(body.detail ?? '스텝 실패')
+  }
+  return r.json() as Promise<{ done?: boolean; date?: string }>
+}
+
+export async function runPaper(body: {
+  steps?: number
+  to?: string
+}): Promise<{ results: unknown[] }> {
+  const r = await fetch('/api/paper/run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!r.ok) {
+    const errBody = (await r.json()) as { detail?: string }
+    throw new Error(errBody.detail ?? '실행 실패')
+  }
+  return r.json() as Promise<{ results: unknown[] }>
+}
