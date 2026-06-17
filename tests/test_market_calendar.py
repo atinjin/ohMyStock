@@ -15,7 +15,7 @@ def test_is_trading_day():
 def test_next_previous_trading_day_strict_and_skip():
     cal = us_market_calendar()
     assert cal.next_trading_day(date(2024, 7, 5)) == date(2024, 7, 8)
-    assert cal.next_trading_day(date(2024, 7, 3)) == date(2024, 7, 8)
+    assert cal.next_trading_day(date(2024, 7, 3)) == date(2024, 7, 5)  # 7/4만 휴일, 7/5(금)은 거래일
     assert cal.next_trading_day(date(2024, 7, 6)) == date(2024, 7, 8)
     assert cal.previous_trading_day(date(2024, 7, 8)) == date(2024, 7, 5)
     assert cal.previous_trading_day(date(2024, 7, 6)) == date(2024, 7, 5)
