@@ -53,7 +53,7 @@
 
 ### 🔴 실계좌 스케줄링
 매 거래일 장 마감 후 리밸런싱을 자동 실행.
-- [ ] 거래일·장시간 캘린더 판정(개장일/휴장 처리)
+- [x] 거래일·장시간 캘린더 판정(개장일/휴장 처리) — `MarketCalendar`(XNYS, 반장일·tz) + `/api/calendar` + 대시보드 달력 패널 ([spec](superpowers/specs/2026-06-17-market-calendar-design.md) · [plan](superpowers/plans/2026-06-17-market-calendar.md))
 - [ ] 스케줄러 진입점(APScheduler 또는 cron 래퍼)
 - [ ] 매 거래일 1회 `rebalance` 자동 실행 잡
 - [ ] 실패 재시도·백오프 + 실행 로그/상태 기록
