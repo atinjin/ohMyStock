@@ -2,8 +2,18 @@
 
 매 거래일 장 마감 후 페이퍼 계좌를 최신 거래일까지 전진시킨다. 멱등.
 """
+import argparse
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
+
+from ohmystock.config import Config
+from ohmystock.core.calendar.exchange import us_market_calendar
+from ohmystock.core.data.cache import ParquetCache
+from ohmystock.core.data.yfinance_adapter import YFinanceAdapter
+from ohmystock.paper.service import PaperService
+from ohmystock.paper.sqlite_store import SqlitePaperStore
+
+DEFAULT_DB = "state/paper.db"
 
 _ET = ZoneInfo("America/New_York")
 
@@ -46,3 +56,34 @@ def run_once(service, calendar, now: datetime) -> dict:
         "cursor": new_state.get("cursor_date"),
         "equity": new_state.get("equity"),
     }
+
+
+def run_cli(argv=None, *, service=None, calendar=None, now=None) -> dict:
+    parser = argparse.ArgumentParser(prog="ohmystock.scheduler")
+    parser.add_argument("--db", default=DEFAULT_DB)
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("run-once")
+    args = parser.parse_args(argv)
+
+    if service is None:
+        service = PaperService(
+            SqlitePaperStore(args.db),
+            YFinanceAdapter(cache=ParquetCache(".cache")),
+            Config(),
+        )
+    if calendar is None:
+        calendar = us_market_calendar()
+    if now is None:
+        now = datetime.now(_ET)
+
+    result = run_once(service, calendar, now)
+    print(result)
+    return result
+
+
+def main() -> None:
+    run_cli()
+
+
+if __name__ == "__main__":
+    main()
