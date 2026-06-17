@@ -14,6 +14,7 @@
 - 휴장일·세션 판정: **`exchange_calendars` 라이브러리**(미국 XNYS, 한국 XKRX 지원). 정확·유지보수됨·미래 날짜 제공.
 - 구조: `MarketCalendar` **인터페이스** + `ExchangeMarketCalendar`(거래소코드 래퍼) + `us_market_calendar()` 팩토리. 한국은 코드만 바꿔 확장.
 - 캘린더는 내부에 "현재 시각"을 두지 않는다 → 모든 메서드가 날짜/시각 인자를 받아 **결정적**(시간 모킹 없이 테스트).
+- **웹 조회 포함**: 같은 태스크에서 `GET /api/calendar` 조회 API + 대시보드 **월별 달력 패널**(거래일/휴장/반장일/오늘 구분)까지. 백엔드 캘린더를 그대로 호출.
 
 기존 `core/data/`의 데이터 유도 거래일(봉의 날짜)은 과거만 가능하므로 스케줄러엔 부적합 — 본 캘린더로 대체/보완.
 
@@ -89,6 +90,30 @@ def us_market_calendar() -> ExchangeMarketCalendar:
 
 ---
 
-## 7. 비범위
+## 7. 웹 조회 (B)
+
+### 백엔드 API (`server/app.py`)
+- `GET /api/calendar?year=YYYY&month=MM` → 그 달 날짜별 거래정보:
+  ```json
+  {
+    "year": 2024, "month": 11,
+    "days": [
+      {"date": "2024-11-01", "is_trading_day": true, "open": "09:30", "close": "16:00", "is_half_day": false},
+      {"date": "2024-11-28", "is_trading_day": false, "open": null, "close": null, "is_half_day": false},
+      {"date": "2024-11-29", "is_trading_day": true, "open": "09:30", "close": "13:00", "is_half_day": true}
+    ]
+  }
+  ```
+- `open`/`close`는 거래소 현지시각 `"HH:MM"`(비거래일 null). `is_half_day` = 마감이 정규 16:00보다 이른 경우.
+- 캘린더 객체는 생성 비용이 있으므로 `create_app`에서 **한 번 생성해 `app.state.calendar`로 재사용**(요청마다 재생성 금지). `year`/`month` 누락·범위 오류는 400.
+
+### 대시보드 패널 (`web/src/components/CalendarPanel.tsx`)
+- **월별 달력 그리드**(주 × 요일). 셀에 일자 표시, **거래일/휴장일 색 구분**, **반장일 배지**(예: "조기마감 13:00"), **오늘 강조**.
+- ◀ ▶ 로 월 이동(이동 시 `/api/calendar` 재조회). 작은 범례(거래일·휴장·반장일·오늘).
+- 다크 테마 변수 재사용. `App.tsx`에 패널 마운트.
+
+---
+
+## 8. 비범위
 
 - 스케줄러 자체(다음 항목), 실계좌 주문, 한국(XKRX) 구현(인터페이스만 준비), 프리/애프터마켓 세션.
