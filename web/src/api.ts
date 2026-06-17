@@ -219,3 +219,25 @@ export async function runPaper(body: {
   }
   return r.json() as Promise<{ results: unknown[] }>
 }
+
+// Calendar types and client functions
+
+export interface CalendarDay {
+  date: string
+  is_trading_day: boolean
+  open: string | null
+  close: string | null
+  is_half_day: boolean
+}
+
+export interface CalendarMonth {
+  year: number
+  month: number
+  days: CalendarDay[]
+}
+
+export async function getCalendar(year: number, month: number): Promise<CalendarMonth> {
+  const r = await fetch(`/api/calendar?year=${year}&month=${month}`)
+  if (!r.ok) throw new Error((await r.json() as { detail?: string }).detail ?? '캘린더 조회 실패')
+  return r.json() as Promise<CalendarMonth>
+}

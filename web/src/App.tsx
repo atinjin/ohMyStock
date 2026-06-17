@@ -10,6 +10,7 @@ import {
   type StrategyInfo,
 } from './api'
 import BacktestForm from './components/BacktestForm'
+import CalendarPanel from './components/CalendarPanel'
 import { ConceptProvider } from './components/ConceptModal'
 import EquityChart from './components/EquityChart'
 import LivePreview from './components/LivePreview'
@@ -164,6 +165,7 @@ function App() {
           )}
 
           <PaperPanel request={lastRequest} />
+          <CalendarPanel />
         </main>
       </div>
       </div>
