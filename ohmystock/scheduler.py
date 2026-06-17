@@ -19,7 +19,10 @@ _ET = ZoneInfo("America/New_York")
 
 
 def compute_target_date(calendar, now: datetime) -> date | None:
-    """now(ET tz-aware) 기준, 마감이 완료된 가장 최근 거래일."""
+    """마감이 완료된 가장 최근 거래일. now는 tz-aware여야 하며 ET로 정규화한다."""
+    if now.tzinfo is None:
+        raise ValueError("now는 tz-aware여야 합니다")
+    now = now.astimezone(_ET)
     today = now.date()
     if calendar.is_trading_day(today):
         times = calendar.session_times(today)
