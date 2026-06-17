@@ -1,7 +1,9 @@
 """FastAPI 앱: 백테스트 엔진을 JSON으로 노출."""
+import calendar as _pycal
 from datetime import date
 
 from fastapi import FastAPI, HTTPException
+from ohmystock.core.calendar.exchange import us_market_calendar
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -42,6 +44,7 @@ def create_app(adapter=None, paper_db="state/paper.db") -> FastAPI:
     app = FastAPI(title="OhMyStock API")
     app.state.adapter = adapter
     app.state.paper_db = paper_db
+    app.state.calendar = None  # lazy: /api/calendar 첫 요청 때 생성
 
     app.add_middleware(
         CORSMiddleware,
@@ -130,6 +133,36 @@ def create_app(adapter=None, paper_db="state/paper.db") -> FastAPI:
     @app.get("/api/paper/history")
     def paper_history():
         return _paper_service().get_history()
+
+    def _market_calendar():
+        if app.state.calendar is None:
+            app.state.calendar = us_market_calendar()
+        return app.state.calendar
+
+    @app.get("/api/calendar")
+    def market_calendar(year: int, month: int):
+        if month < 1 or month > 12:
+            raise HTTPException(status_code=400, detail="month은 1~12 이어야 합니다")
+        cal = _market_calendar()
+        n_days = _pycal.monthrange(year, month)[1]
+        days = []
+        for day in range(1, n_days + 1):
+            d = date(year, month, day)
+            times = cal.session_times(d)
+            if times is None:
+                days.append({
+                    "date": d.isoformat(), "is_trading_day": False,
+                    "open": None, "close": None, "is_half_day": False,
+                })
+            else:
+                open_dt, close_dt = times
+                days.append({
+                    "date": d.isoformat(), "is_trading_day": True,
+                    "open": open_dt.strftime("%H:%M"),
+                    "close": close_dt.strftime("%H:%M"),
+                    "is_half_day": close_dt.hour < 16,
+                })
+        return {"year": year, "month": month, "days": days}
 
     return app
 
