@@ -14,6 +14,7 @@ from ohmystock import report
 from ohmystock.live import live_preview
 from ohmystock.paper.service import PaperService
 from ohmystock.paper.sqlite_store import SqlitePaperStore
+from ohmystock.scheduler_store import SqliteSchedulerStore
 
 
 class BacktestRequest(BaseModel):
@@ -163,6 +164,12 @@ def create_app(adapter=None, paper_db="state/paper.db") -> FastAPI:
                     "is_half_day": close_dt.hour < 16,
                 })
         return {"year": year, "month": month, "days": days}
+
+    @app.get("/api/scheduler/runs")
+    def scheduler_runs(limit: int = 20):
+        limit = max(1, min(limit, 200))
+        store = SqliteSchedulerStore(app.state.paper_db)
+        return {"runs": store.recent_runs(limit)}
 
     return app
 
