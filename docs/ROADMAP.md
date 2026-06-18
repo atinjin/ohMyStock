@@ -56,7 +56,7 @@
 - [x] 거래일·장시간 캘린더 판정(개장일/휴장 처리) — `MarketCalendar`(XNYS, 반장일·tz) + `/api/calendar` + 대시보드 달력 패널 ([spec](superpowers/specs/2026-06-17-market-calendar-design.md) · [plan](superpowers/plans/2026-06-17-market-calendar.md))
 - [x] 스케줄러 진입점(cron 래퍼) — `python -m ohmystock.scheduler run-once`, 멱등 `compute_target_date`/`run_once` ([spec](superpowers/specs/2026-06-17-scheduler-entrypoint-design.md) · [plan](superpowers/plans/2026-06-17-scheduler-entrypoint.md))
 - [x] 매 거래일 1회 `rebalance` 자동 실행 잡 — `run_once`가 due일 때 페이퍼 계좌를 최신까지 전진(리밸런싱)
-- [ ] 실패 재시도·백오프 + 실행 로그/상태 기록
+- [x] 실패 재시도·백오프 + 실행 로그/상태 기록 — `run_scheduled`(지수 백오프) + `SqliteSchedulerStore` + CLI `history`/`last-run` + `/api/scheduler/runs` + 대시보드 패널 ([spec](superpowers/specs/2026-06-19-scheduler-retry-log-design.md) · [plan](superpowers/plans/2026-06-19-scheduler-retry-log.md))
 - [ ] (선택) APScheduler 상주 데몬
 - [ ] 드라이런 ↔ 실계좌 모드 토글(API 키 가드)
 - [ ] `/schedule`(cloud agent) 또는 시스템 cron 연동 문서화
