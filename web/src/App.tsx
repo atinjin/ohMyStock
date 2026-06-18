@@ -17,6 +17,7 @@ import LivePreview from './components/LivePreview'
 import MetricsGrid from './components/MetricsGrid'
 import PaperPanel from './components/PaperPanel'
 import ScoreCard from './components/ScoreCard'
+import SchedulerRunsPanel from './components/SchedulerRunsPanel'
 
 const currency = new Intl.NumberFormat('ko-KR', {
   style: 'currency',
@@ -166,6 +167,7 @@ function App() {
 
           <PaperPanel request={lastRequest} />
           <CalendarPanel />
+          <SchedulerRunsPanel />
         </main>
       </div>
       </div>

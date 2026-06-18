@@ -3,6 +3,7 @@
 매 거래일 장 마감 후 페이퍼 계좌를 최신 거래일까지 전진시킨다. 멱등.
 """
 import argparse
+import time
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -12,6 +13,7 @@ from ohmystock.core.data.cache import ParquetCache
 from ohmystock.core.data.yfinance_adapter import YFinanceAdapter
 from ohmystock.paper.service import PaperService
 from ohmystock.paper.sqlite_store import SqlitePaperStore
+from ohmystock.scheduler_store import SqliteSchedulerStore
 
 DEFAULT_DB = "state/paper.db"
 
@@ -61,27 +63,74 @@ def run_once(service, calendar, now: datetime) -> dict:
     }
 
 
-def run_cli(argv=None, *, service=None, calendar=None, now=None) -> dict:
+def run_scheduled(service, calendar, store, now, *,
+                  max_attempts: int = 3, base_delay: float = 5.0,
+                  factor: float = 2.0, sleep=time.sleep) -> dict:
+    """run_once를 지수 백오프로 재시도하고 결과를 store에 기록. 멱등."""
+    attempt = 0
+    last_error = None
+    result = None
+    while attempt < max_attempts:
+        attempt += 1
+        try:
+            result = run_once(service, calendar, now)
+            last_error = None
+            break
+        except Exception as exc:
+            last_error = exc
+            if attempt < max_attempts:
+                sleep(base_delay * (factor ** (attempt - 1)))
+
+    ts = now.isoformat()
+    if last_error is not None:
+        store.record_run(ts=ts, status="failed", reason=str(last_error)[:200],
+                         target=None, steps=0, equity=None,
+                         attempts=attempt, error=repr(last_error))
+        raise last_error
+    status = "ok" if result["ran"] else "skipped"
+    store.record_run(ts=ts, status=status, reason=result["reason"],
+                     target=result.get("target"), steps=result.get("steps", 0),
+                     equity=result.get("equity"), attempts=attempt, error=None)
+    return {**result, "status": status, "attempts": attempt}
+
+
+def run_cli(argv=None, *, service=None, calendar=None, store=None, now=None, sleep=time.sleep):
     parser = argparse.ArgumentParser(prog="ohmystock.scheduler")
     parser.add_argument("--db", default=DEFAULT_DB)
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run-once")
+    p_hist = sub.add_parser("history")
+    p_hist.add_argument("--limit", type=int, default=20)
+    sub.add_parser("last-run")
     args = parser.parse_args(argv)
 
-    if service is None:
-        service = PaperService(
-            SqlitePaperStore(args.db),
-            YFinanceAdapter(cache=ParquetCache(".cache")),
-            Config(),
-        )
-    if calendar is None:
-        calendar = us_market_calendar()
-    if now is None:
-        now = datetime.now(_ET)
+    if store is None:
+        store = SqliteSchedulerStore(args.db)
 
-    result = run_once(service, calendar, now)
-    print(result)
-    return result
+    if args.cmd == "run-once":
+        if service is None:
+            service = PaperService(
+                SqlitePaperStore(args.db),
+                YFinanceAdapter(cache=ParquetCache(".cache")),
+                Config(),
+            )
+        if calendar is None:
+            calendar = us_market_calendar()
+        if now is None:
+            now = datetime.now(_ET)
+        result = run_scheduled(service, calendar, store, now, sleep=sleep)
+        print(result)
+        return result
+
+    if args.cmd == "history":
+        runs = store.recent_runs(args.limit)
+        for run in runs:
+            print(run)
+        return runs
+
+    out = {"last_run": store.last_run(), "last_success": store.last_success()}
+    print(out)
+    return out
 
 
 def main() -> None:
