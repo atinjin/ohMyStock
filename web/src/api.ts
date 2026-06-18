@@ -241,3 +241,23 @@ export async function getCalendar(year: number, month: number): Promise<Calendar
   if (!r.ok) throw new Error((await r.json() as { detail?: string }).detail ?? '캘린더 조회 실패')
   return r.json() as Promise<CalendarMonth>
 }
+
+// Scheduler run history types and client functions
+
+export interface SchedulerRun {
+  id: number
+  ts: string
+  status: string
+  reason: string
+  target: string | null
+  steps: number
+  equity: number | null
+  attempts: number
+  error: string | null
+}
+
+export async function getSchedulerRuns(limit = 20): Promise<SchedulerRun[]> {
+  const r = await fetch(`/api/scheduler/runs?limit=${limit}`)
+  if (!r.ok) throw new Error((await r.json() as { detail?: string }).detail ?? '실행 내역 조회 실패')
+  return (await r.json() as { runs: SchedulerRun[] }).runs
+}

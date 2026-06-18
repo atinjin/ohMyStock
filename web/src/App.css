@@ -1037,6 +1037,11 @@
   border: 2px solid var(--accent);
 }
 
+/* Scheduler run status --------------------------------------------------- */
+.run-ok { color: var(--pass); font-weight: 600; }
+.run-failed { color: var(--fail); font-weight: 600; }
+.run-skipped { color: var(--text-dim); }
+
 /* Responsive ------------------------------------------------------------- */
 @media (max-width: 900px) {
   .app-body {
