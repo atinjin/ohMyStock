@@ -3,6 +3,7 @@
 매 거래일 장 마감 후 페이퍼 계좌를 최신 거래일까지 전진시킨다. 멱등.
 """
 import argparse
+import time
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
@@ -59,6 +60,37 @@ def run_once(service, calendar, now: datetime) -> dict:
         "cursor": new_state.get("cursor_date"),
         "equity": new_state.get("equity"),
     }
+
+
+def run_scheduled(service, calendar, store, now, *,
+                  max_attempts: int = 3, base_delay: float = 5.0,
+                  factor: float = 2.0, sleep=time.sleep) -> dict:
+    """run_once를 지수 백오프로 재시도하고 결과를 store에 기록. 멱등."""
+    attempt = 0
+    last_error = None
+    result = None
+    while attempt < max_attempts:
+        attempt += 1
+        try:
+            result = run_once(service, calendar, now)
+            last_error = None
+            break
+        except Exception as exc:
+            last_error = exc
+            if attempt < max_attempts:
+                sleep(base_delay * (factor ** (attempt - 1)))
+
+    ts = now.isoformat()
+    if last_error is not None:
+        store.record_run(ts=ts, status="failed", reason=str(last_error)[:200],
+                         target=None, steps=0, equity=None,
+                         attempts=attempt, error=repr(last_error))
+        raise last_error
+    status = "ok" if result["ran"] else "skipped"
+    store.record_run(ts=ts, status=status, reason=result["reason"],
+                     target=result.get("target"), steps=result.get("steps", 0),
+                     equity=result.get("equity"), attempts=attempt, error=None)
+    return {**result, "status": status, "attempts": attempt}
 
 
 def run_cli(argv=None, *, service=None, calendar=None, now=None) -> dict:
