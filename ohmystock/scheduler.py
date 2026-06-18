@@ -13,6 +13,7 @@ from ohmystock.core.data.cache import ParquetCache
 from ohmystock.core.data.yfinance_adapter import YFinanceAdapter
 from ohmystock.paper.service import PaperService
 from ohmystock.paper.sqlite_store import SqlitePaperStore
+from ohmystock.scheduler_store import SqliteSchedulerStore
 
 DEFAULT_DB = "state/paper.db"
 
@@ -93,27 +94,43 @@ def run_scheduled(service, calendar, store, now, *,
     return {**result, "status": status, "attempts": attempt}
 
 
-def run_cli(argv=None, *, service=None, calendar=None, now=None) -> dict:
+def run_cli(argv=None, *, service=None, calendar=None, store=None, now=None, sleep=time.sleep):
     parser = argparse.ArgumentParser(prog="ohmystock.scheduler")
     parser.add_argument("--db", default=DEFAULT_DB)
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run-once")
+    p_hist = sub.add_parser("history")
+    p_hist.add_argument("--limit", type=int, default=20)
+    sub.add_parser("last-run")
     args = parser.parse_args(argv)
 
-    if service is None:
-        service = PaperService(
-            SqlitePaperStore(args.db),
-            YFinanceAdapter(cache=ParquetCache(".cache")),
-            Config(),
-        )
-    if calendar is None:
-        calendar = us_market_calendar()
-    if now is None:
-        now = datetime.now(_ET)
+    if store is None:
+        store = SqliteSchedulerStore(args.db)
 
-    result = run_once(service, calendar, now)
-    print(result)
-    return result
+    if args.cmd == "run-once":
+        if service is None:
+            service = PaperService(
+                SqlitePaperStore(args.db),
+                YFinanceAdapter(cache=ParquetCache(".cache")),
+                Config(),
+            )
+        if calendar is None:
+            calendar = us_market_calendar()
+        if now is None:
+            now = datetime.now(_ET)
+        result = run_scheduled(service, calendar, store, now, sleep=sleep)
+        print(result)
+        return result
+
+    if args.cmd == "history":
+        runs = store.recent_runs(args.limit)
+        for run in runs:
+            print(run)
+        return runs
+
+    out = {"last_run": store.last_run(), "last_success": store.last_success()}
+    print(out)
+    return out
 
 
 def main() -> None:
