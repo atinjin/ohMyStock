@@ -130,3 +130,42 @@ class TossBroker:
             mv = item.get("marketValue", {})
             out[item["symbol"]] = float(mv.get("amount") or 0.0)
         return out
+
+    # --- 시세 / 주문 --------------------------------------------------------
+    def _last_price(self, symbol: str) -> float:
+        resp = self.client.get(
+            "/api/v1/prices",
+            params={"symbols": symbol},
+            headers={"Authorization": f"Bearer {self.access_token}"},
+        )
+        for row in self._result(resp):
+            if row.get("symbol") == symbol:
+                return float(row["lastPrice"])
+        raise ValueError(f"TOSS 시세 없음: {symbol}")
+
+    def submit_order(self, order: Order) -> None:
+        self._ensure_token()
+        seq = self._resolve_account_seq()
+        price = self._last_price(order.symbol)
+        qty = math.floor(order.notional / price)
+        if qty < 1:
+            return  # 1주 미만(소액)은 스킵
+        body = {
+            "symbol": order.symbol,
+            "side": "BUY" if order.side == "buy" else "SELL",
+            "orderType": "MARKET",
+            "quantity": qty,
+            "timeInForce": "DAY",
+            "clientOrderId": self._client_order_id_fn(),
+        }
+        resp = self.client.post(
+            "/api/v1/orders",
+            json=body,
+            headers={
+                "Authorization": f"Bearer {self.access_token}",
+                "X-Tossinvest-Account": str(seq),
+            },
+        )
+        result = self._result(resp)
+        if not result.get("orderId"):
+            raise ValueError(f"TOSS 주문 실패: {result}")

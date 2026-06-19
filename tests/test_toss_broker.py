@@ -151,3 +151,79 @@ def test_get_positions_excludes_zero_quantity():
     broker = _make_broker(handler, access_token="tok",
                           token_expires_at=datetime(2030, 1, 1))
     assert broker.get_positions() == {"AAPL": 3000.0}
+
+
+def test_submit_order_buy_floors_quantity():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/prices":
+            assert request.url.params.get("symbols") == "AAPL"
+            return httpx.Response(200, json={"result": [
+                {"symbol": "AAPL", "lastPrice": 150.0}]})
+        if request.url.path == "/api/v1/orders":
+            captured["body"] = json.loads(request.content.decode())
+            captured["account"] = request.headers.get("X-Tossinvest-Account")
+            return httpx.Response(200, json={"result": {"orderId": "ord-1"}})
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1),
+                          client_order_id_fn=lambda: "fixed-id")
+    broker.submit_order(Order(symbol="AAPL", side="buy", notional=500.0))
+
+    body = captured["body"]
+    assert body["symbol"] == "AAPL"
+    assert body["side"] == "BUY"
+    assert body["orderType"] == "MARKET"
+    assert body["quantity"] == 3          # floor(500/150)
+    assert body["clientOrderId"] == "fixed-id"
+    assert captured["account"] == "42"
+
+
+def test_submit_order_sell_side():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/prices":
+            return httpx.Response(200, json={"result": [
+                {"symbol": "AAPL", "lastPrice": 100.0}]})
+        captured["body"] = json.loads(request.content.decode())
+        return httpx.Response(200, json={"result": {"orderId": "ord-2"}})
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    broker.submit_order(Order(symbol="AAPL", side="sell", notional=350.0))
+    assert captured["body"]["side"] == "SELL"
+    assert captured["body"]["quantity"] == 3
+
+
+def test_submit_order_skips_below_one_share():
+    seen = {"orders": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/prices":
+            return httpx.Response(200, json={"result": [
+                {"symbol": "AAPL", "lastPrice": 1000.0}]})
+        if request.url.path == "/api/v1/orders":
+            seen["orders"] += 1
+            return httpx.Response(200, json={"result": {"orderId": "x"}})
+        raise AssertionError("unexpected")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    broker.submit_order(Order(symbol="AAPL", side="buy", notional=500.0))  # <1주
+    assert seen["orders"] == 0   # 주문 POST 없음
+
+
+def test_submit_order_raises_without_order_id():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/prices":
+            return httpx.Response(200, json={"result": [
+                {"symbol": "AAPL", "lastPrice": 100.0}]})
+        return httpx.Response(200, json={"result": {}})  # orderId 없음
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    with pytest.raises(ValueError):
+        broker.submit_order(Order(symbol="AAPL", side="buy", notional=500.0))
