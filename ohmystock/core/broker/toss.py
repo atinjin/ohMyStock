@@ -1,0 +1,86 @@
+"""토스증권(TOSS Invest) Open API 브로커 어댑터.
+
+샌드박스(모의투자)가 없어 모든 주문이 실거래다. httpx.Client 를 주입하면
+httpx.MockTransport 로 완전히 오프라인 테스트할 수 있다. 환경변수
+TOSS_CLIENT_ID / TOSS_CLIENT_SECRET / TOSS_ACCOUNT_SEQ 폴백을 지원한다.
+"""
+
+import math
+import os
+import uuid
+from datetime import datetime, timedelta
+
+import httpx
+
+from ohmystock.core.broker.base import Account, Order
+
+_BASE_URL = "https://openapi.tossinvest.com"
+_TOKEN_PATH = "/oauth2/token"
+_REFRESH_MARGIN = timedelta(seconds=60)
+
+
+class TossBroker:
+    """토스증권 Open API 어댑터 (Broker 프로토콜)."""
+
+    def __init__(
+        self,
+        client_id=None,
+        client_secret=None,
+        account_seq=None,
+        *,
+        currency="usd",
+        base_url=_BASE_URL,
+        client=None,
+        access_token=None,
+        token_expires_at=None,
+        now=None,
+        client_order_id_fn=None,
+    ):
+        self.client_id = client_id or os.environ.get("TOSS_CLIENT_ID")
+        self.client_secret = client_secret or os.environ.get("TOSS_CLIENT_SECRET")
+        self._account_seq = account_seq or os.environ.get("TOSS_ACCOUNT_SEQ")
+        self.currency = currency.lower()
+        self.access_token = access_token
+        self.token_expires_at = token_expires_at
+        self.client = client or httpx.Client(base_url=base_url)
+        self._now = now or datetime.now
+        self._client_order_id_fn = client_order_id_fn or (lambda: uuid.uuid4().hex)
+
+    # --- 토큰 ---------------------------------------------------------------
+    def issue_token(self) -> str:
+        """OAuth2 client_credentials 토큰 발급 + 만료시각 저장."""
+        resp = self.client.post(
+            _TOKEN_PATH,
+            data={
+                "grant_type": "client_credentials",
+                "client_id": self.client_id,
+                "client_secret": self.client_secret,
+            },
+        )
+        resp.raise_for_status()
+        j = resp.json()  # OAuth 응답은 envelope 아님
+        self.access_token = j["access_token"]
+        expires_in = int(j.get("expires_in", 0))
+        self.token_expires_at = self._now() + timedelta(seconds=expires_in)
+        return self.access_token
+
+    def _ensure_token(self) -> None:
+        if self.access_token is None:
+            self.issue_token()
+            return
+        if self.token_expires_at is not None and \
+                self._now() >= self.token_expires_at - _REFRESH_MARGIN:
+            self.issue_token()
+
+    # --- 공통 ---------------------------------------------------------------
+    def _result(self, resp: httpx.Response):
+        if resp._request is not None:
+            resp.raise_for_status()
+        elif resp.status_code >= 400:
+            raise httpx.HTTPStatusError(
+                f"HTTP {resp.status_code}", request=None, response=resp
+            )
+        j = resp.json()
+        if "result" not in j:
+            raise ValueError(f"TOSS 응답에 result 없음: {j}")
+        return j["result"]
