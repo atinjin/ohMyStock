@@ -74,13 +74,59 @@ class TossBroker:
 
     # --- 공통 ---------------------------------------------------------------
     def _result(self, resp: httpx.Response):
-        if resp._request is not None:
-            resp.raise_for_status()
-        elif resp.status_code >= 400:
-            raise httpx.HTTPStatusError(
-                f"HTTP {resp.status_code}", request=None, response=resp
-            )
+        if resp.status_code >= 400:
+            raise ValueError(f"TOSS API 오류 HTTP {resp.status_code}: {resp.text}")
         j = resp.json()
         if "result" not in j:
             raise ValueError(f"TOSS 응답에 result 없음: {j}")
         return j["result"]
+
+    # --- 계좌 ---------------------------------------------------------------
+    def _resolve_account_seq(self):
+        if self._account_seq:
+            return self._account_seq
+        self._ensure_token()
+        resp = self.client.get(
+            "/api/v1/accounts",
+            headers={"Authorization": f"Bearer {self.access_token}"},
+        )
+        accounts = self._result(resp)
+        for acc in accounts:
+            if acc.get("accountType") == "BROKERAGE":
+                self._account_seq = acc["accountSeq"]
+                return self._account_seq
+        if accounts:
+            self._account_seq = accounts[0]["accountSeq"]
+            return self._account_seq
+        raise ValueError("TOSS 계좌를 찾을 수 없습니다 (accounts 비어있음)")
+
+    def _acct_headers(self) -> dict:
+        self._ensure_token()
+        return {
+            "Authorization": f"Bearer {self.access_token}",
+            "X-Tossinvest-Account": str(self._resolve_account_seq()),
+        }
+
+    def get_account(self) -> Account:
+        headers = self._acct_headers()
+        holdings = self._result(self.client.get("/api/v1/holdings", headers=headers))
+        amount = holdings.get("marketValue", {}).get("amount", {})
+        positions_value = float(amount.get(self.currency) or 0.0)
+        bp = self._result(self.client.get(
+            "/api/v1/buying-power",
+            params={"currency": self.currency.upper()},
+            headers=headers,
+        ))
+        cash = float(bp.get("cashBuyingPower") or 0.0)
+        return Account(equity=positions_value + cash, cash=cash)
+
+    def get_positions(self) -> dict[str, float]:
+        headers = self._acct_headers()
+        holdings = self._result(self.client.get("/api/v1/holdings", headers=headers))
+        out = {}
+        for item in holdings.get("items", []):
+            if float(item.get("quantity") or 0) <= 0:
+                continue
+            mv = item.get("marketValue", {})
+            out[item["symbol"]] = float(mv.get("amount") or 0.0)
+        return out

@@ -93,3 +93,61 @@ def test_result_unwraps_envelope_and_raises_without_result():
     assert broker._result(ok) == {"x": 1}
     with pytest.raises(ValueError):
         broker._result(httpx.Response(200, json={"no_result": True}))
+
+
+def test_resolve_account_seq_picks_brokerage_and_caches():
+    calls = {"accounts": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/accounts":
+            calls["accounts"] += 1
+            return httpx.Response(200, json={"result": [
+                {"accountSeq": 100, "accountType": "PENSION_SAVINGS"},
+                {"accountSeq": 200, "accountType": "BROKERAGE"},
+            ]})
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+    broker = _make_broker(handler, account_seq=None, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    assert broker._resolve_account_seq() == 200
+    assert broker._resolve_account_seq() == 200   # 캐시
+    assert calls["accounts"] == 1
+
+
+def test_get_account_combines_holdings_and_buying_power():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/holdings":
+            assert request.headers.get("X-Tossinvest-Account") == "42"
+            return httpx.Response(200, json={"result": {
+                "marketValue": {"amount": {"krw": 0, "usd": 8000.0}},
+                "items": [],
+            }})
+        if request.url.path == "/api/v1/buying-power":
+            assert request.url.params.get("currency") == "USD"
+            return httpx.Response(200, json={"result": {
+                "currency": "USD", "cashBuyingPower": 2000.0}})
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    account = broker.get_account()
+    assert account == Account(equity=10000.0, cash=2000.0)
+
+
+def test_get_positions_excludes_zero_quantity():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/holdings":
+            return httpx.Response(200, json={"result": {
+                "marketValue": {"amount": {"usd": 5000.0}},
+                "items": [
+                    {"symbol": "AAPL", "quantity": 10, "currency": "USD",
+                     "marketValue": {"amount": 3000.0}},
+                    {"symbol": "MSFT", "quantity": 0, "currency": "USD",
+                     "marketValue": {"amount": 0.0}},
+                ],
+            }})
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    assert broker.get_positions() == {"AAPL": 3000.0}
