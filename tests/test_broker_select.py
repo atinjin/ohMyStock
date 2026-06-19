@@ -53,3 +53,16 @@ def test_build_live_base_url_override():
     assert isinstance(b, AlpacaBroker)
     assert "api.alpaca.markets" in str(b.client.base_url)
     assert "paper" not in str(b.client.base_url)
+
+
+def test_resolve_empty_string_env_raises():
+    # OHMYSTOCK_MODE="" 는 조용히 dry-run/live로 빠지지 않고 ValueError
+    with pytest.raises(ValueError):
+        resolve_mode(None, env={"OHMYSTOCK_MODE": ""})
+
+
+def test_build_dry_run_ignores_alpaca_keys():
+    # dry-run은 키가 있어도 PaperBroker (실브로커로 바뀌지 않음)
+    b = build_broker("dry-run", cash=1000.0,
+                     env={"ALPACA_API_KEY": "k", "ALPACA_SECRET_KEY": "s"})
+    assert isinstance(b, PaperBroker)

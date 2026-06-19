@@ -68,3 +68,23 @@ def test_run_cli_live_without_keys_raises():
         run_cli(["--mode", "live", "--symbols", "AAPL",
                  "--start", "2024-01-01", "--end", "2024-03-01"],
                 adapter=FakeAdapter(), env={})
+
+
+def test_live_execute_rejects_live_broker_in_dry_run():
+    # 실브로커를 dry-run으로 주입 -> 모순 거부 (실주문이 'dry-run'으로 오기록되는 것 차단)
+    client = httpx.Client(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json={"equity": "1", "cash": "1"})),
+        base_url="https://paper-api.alpaca.markets")
+    broker = AlpacaBroker(api_key="k", secret_key="s", client=client)
+    with pytest.raises(ValueError):
+        live_execute(["AAPL"], date(2024, 1, 1), date(2024, 3, 1),
+                     FakeAdapter(), Momentum(lookback=20, top_k=2), Config(),
+                     mode="dry-run", broker=broker, env={})
+
+
+def test_live_execute_rejects_paper_broker_in_live():
+    from ohmystock.core.broker.paper import PaperBroker
+    with pytest.raises(ValueError):
+        live_execute(["AAPL"], date(2024, 1, 1), date(2024, 3, 1),
+                     FakeAdapter(), Momentum(lookback=20, top_k=2), Config(),
+                     mode="live", broker=PaperBroker(cash=1000.0), env={})

@@ -56,7 +56,16 @@ def live_execute(symbols, start, end, adapter, strategy, config, *,
     bars = adapter.get_daily_bars(symbols, start, end)
     if broker is None:
         broker = build_broker(resolved, cash=config.initial_capital, env=env)
-    if isinstance(broker, PaperBroker):
+
+    # 안전 계약: 보고된 모드와 실제 브로커 종류가 반드시 일치한다.
+    # (실브로커를 dry-run으로 주입해 실주문이 'dry-run'으로 오기록되는 것을 차단)
+    is_paper = isinstance(broker, PaperBroker)
+    if resolved == "dry-run" and not is_paper:
+        raise ValueError("dry-run 모드에는 시뮬 브로커(PaperBroker)만 허용됩니다 — 주입된 실브로커와 모순")
+    if resolved == "live" and is_paper:
+        raise ValueError("live 모드에는 실브로커가 필요합니다 — 주입된 PaperBroker와 모순")
+
+    if is_paper:
         broker.set_prices({s: float(df["close"].iloc[-1]) for s, df in bars.items()})
 
     before = broker.get_account()
