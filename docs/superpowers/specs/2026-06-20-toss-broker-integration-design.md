@@ -77,7 +77,7 @@ class TossBroker:
   2. `holdings = GET /holdings` → 포지션 평가액 `pos = result.marketValue.amount[currency]`(usd/krw, 없으면 0).
   3. `cash = GET /buying-power?currency=CUR` → `result.cashBuyingPower`.
   4. `Account(equity=pos + cash, cash=cash)`.
-- `get_positions()`: `holdings.result.items[]` 중 `quantity > 0` 이고 통화 일치 → `{symbol: marketValue.amount}`.
+- `get_positions()`: `holdings.result.items[]` 중 `quantity > 0` → `{symbol: marketValue.amount}`. **단일 통화(US 바스켓) 계좌 가정** — 다통화 분리/FX는 §10 비범위.
 
 ## 6. 주문 흐름 (`submit_order`)
 
@@ -92,15 +92,18 @@ class TossBroker:
 - 비-2xx → `raise_for_status()` + 본문 메시지로 명확한 예외(어떤 단계/종목인지).
 - 응답 envelope 누락/`result` 없음 → 명확한 예외.
 - `qty < 1`(소액) → 스킵(무동작).
+- 현재가 `lastPrice <= 0`(정류/장전 등) → 나눗셈 전에 명확한 예외(종목 포함), 주문 안 함.
 - 토큰 만료 → `_ensure_token`이 선제 갱신.
-- `clientOrderId` 멱등키로 재시도 시 중복 체결 방지.
+- 각 주문에 `clientOrderId` 부여(기본 `uuid4` — 매 호출 고유). **자동 멱등은 아니다**: 재시도 멱등이 필요하면 `client_order_id_fn`으로 안정 키를 주입한다.
 
 ## 8. 테스트 (오프라인, httpx MockTransport — 실 스키마 흉내, 네트워크 0)
 
 - 토큰: `issue_token` → access_token 저장·만료시각 설정. `_ensure_token`이 만료 시 재발급(주입 now/만료로 검증).
 - 계좌해석: `account_seq` 미지정 → `GET /accounts`의 첫 BROKERAGE seq 사용, 이후 캐시(재호출 없음).
 - get_account: holdings(`marketValue.amount.usd`) + buying-power(`cashBuyingPower`) → `Account(equity=pos+cash, cash)`.
-- get_positions: items(usd) → `{symbol: marketValue.amount}`, quantity 0/타통화 제외.
+- get_positions: items → `{symbol: marketValue.amount}`, quantity 0 제외(단일 통화 가정).
+- 주문 안전: `lastPrice<=0` → 예외(주문 POST 0), 시세에 요청 종목 없음 → 예외(주문 POST 0).
+- 스모크 이중게이트(main 레벨): 인자 없음 → 주문 0 / `--order`만 → 거부(rc 2)·주문 0 / `--order`+`--i-understand-real-money` → 1건 제출.
 - 주문: `submit_order`가 `prices`로 floor 수량 계산, body(side BUY/SELL, orderType MARKET, quantity, clientOrderId) POST, `result.orderId` 확인. `qty<1` → POST 안 함(스킵). 주입 `client_order_id_fn`로 결정적 검증.
 - envelope: `result` 래핑 파싱. 비-2xx → 예외.
 - 모든 응답은 MockTransport가 path로 라우팅.

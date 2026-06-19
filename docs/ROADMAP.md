@@ -61,6 +61,15 @@
 - [ ] (선택) APScheduler 상주 데몬
 - [ ] `/schedule`(cloud agent) 또는 시스템 cron 연동 문서화
 
+### 🟢 토스증권(TOSS Invest) 어댑터
+토스증권 Open API(`https://openapi.tossinvest.com`)를 Broker 프로토콜로 구현. **샌드박스 없음 = 모든 주문 실거래** → 실(live) 브로커 취급, 에이전트는 오프라인 검증만.
+- [x] OAuth2 client_credentials 토큰 자동 갱신(`_ensure_token`, 만료 추적)
+- [x] 실 응답 스키마 + envelope(`{result}`) 파싱 — 계좌/보유/매수여력/시세
+- [x] notional → 정수 수량 변환(현재가 `floor`, 1주 미만·0가·미상장 안전 처리) + `clientOrderId`
+- [x] `get_account`/`get_positions`/`submit_order`(시장가) — `TossBroker`, 오프라인 MockTransport 19 테스트
+- [x] 사용자용 실 스모크 스크립트(`scripts/toss_smoke.py`, 실주문 이중 게이트) ([spec](superpowers/specs/2026-06-20-toss-broker-integration-design.md) · [plan](superpowers/plans/2026-06-20-toss-broker-integration.md))
+- [ ] (후속) broker_select/live 모드 배선, KR 종목·다통화, 정정/취소
+
 ### 🔴 KIS 어댑터 실연동 검증
 인터페이스만 준비된 KIS를 실제 모의투자 계좌로 검증.
 - [ ] OAuth 토큰 발급·만료 자동 갱신

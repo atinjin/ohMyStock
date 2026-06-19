@@ -69,6 +69,21 @@ cd web && npm run build   # 프론트 타입체크 + 빌드
 - 미국: 환경변수 `ALPACA_API_KEY`, `ALPACA_SECRET_KEY` → `AlpacaBroker` (기본 base_url은 페이퍼).
 - 한국: `KIS_APP_KEY`, `KIS_APP_SECRET`, `KIS_ACCOUNT_NO` → `KISBroker`.
 
+### 토스증권(TOSS Invest) 어댑터
+
+`ohmystock/core/broker/toss.py::TossBroker` 는 토스증권 Open API(`https://openapi.tossinvest.com`)를
+Broker 프로토콜로 구현한다. OAuth client_credentials 토큰을 자동 갱신하고,
+주문은 현재가로 `floor(notional/lastPrice)` 정수 수량을 계산해 시장가로 제출한다.
+
+**주의: TOSS는 모의투자(샌드박스)가 없어 모든 주문이 실제 체결된다.** 에이전트/자동화는
+실주문을 내지 않으며, 실계좌 검증은 사용자가 직접 실행한다:
+
+```bash
+export TOSS_CLIENT_ID=...  TOSS_CLIENT_SECRET=...
+uv run python scripts/toss_smoke.py            # 토큰+계좌+보유 확인(안전)
+uv run python scripts/toss_smoke.py --order AAPL 50 --i-understand-real-money  # 소량 실주문
+```
+
 리스크 가드(`RiskGuard`)가 MDD 한도(-20%, 설정값)를 넘으면 신규 진입을 차단한다.
 
 ## 구조
