@@ -140,7 +140,11 @@ class TossBroker:
         )
         for row in self._result(resp):
             if row.get("symbol") == symbol:
-                return float(row["lastPrice"])
+                price = float(row["lastPrice"])
+                if price <= 0:
+                    raise ValueError(
+                        f"TOSS {symbol} 현재가 비정상({price}) — 주문 불가(정류/장전 등)")
+                return price
         raise ValueError(f"TOSS 시세 없음: {symbol}")
 
     def submit_order(self, order: Order) -> None:

@@ -227,3 +227,35 @@ def test_submit_order_raises_without_order_id():
                           token_expires_at=datetime(2030, 1, 1))
     with pytest.raises(ValueError):
         broker.submit_order(Order(symbol="AAPL", side="buy", notional=500.0))
+
+
+def test_submit_order_raises_on_zero_price_no_post():
+    # 정류/장전 등 현재가 0 → 나눗셈 크래시 대신 명확한 예외, 주문 POST 없음
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/prices":
+            return httpx.Response(200, json={"result": [
+                {"symbol": "AAPL", "lastPrice": 0.0}]})
+        if request.url.path == "/api/v1/orders":
+            raise AssertionError("0가인데 실주문이 나감")
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    with pytest.raises(ValueError):
+        broker.submit_order(Order(symbol="AAPL", side="buy", notional=500.0))
+
+
+def test_submit_order_raises_on_missing_symbol_no_post():
+    # 요청 종목이 시세에 없으면 잘못된 가격으로 주문 내지 않고 예외
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/prices":
+            return httpx.Response(200, json={"result": [
+                {"symbol": "MSFT", "lastPrice": 100.0}]})  # 다른 종목만
+        if request.url.path == "/api/v1/orders":
+            raise AssertionError("시세 없는데 실주문이 나감")
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    with pytest.raises(ValueError):
+        broker.submit_order(Order(symbol="AAPL", side="buy", notional=500.0))

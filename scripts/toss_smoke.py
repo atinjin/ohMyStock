@@ -35,9 +35,17 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def main(argv=None) -> int:
+def main(argv=None, broker=None) -> int:
     args = build_parser().parse_args(argv)
-    broker = TossBroker(currency=args.currency)
+
+    # 실주문 이중 게이트: --order 는 --i-understand-real-money 없이는 즉시 거부(네트워크 전).
+    if args.order and not args.i_understand_real_money:
+        print("거부: 실주문은 --i-understand-real-money 가 필요합니다 (실거래).",
+              file=sys.stderr)
+        return 2
+
+    if broker is None:
+        broker = TossBroker(currency=args.currency)
     print("[1] 토큰 발급 …")
     broker.issue_token()
     print("    OK")
@@ -47,10 +55,6 @@ def main(argv=None) -> int:
     print(f"[4] positions: {broker.get_positions()}")
 
     if args.order:
-        if not args.i_understand_real_money:
-            print("거부: 실주문은 --i-understand-real-money 가 필요합니다 (실거래).",
-                  file=sys.stderr)
-            return 2
         symbol, notional = args.order[0], float(args.order[1])
         print(f"[5] 실주문 제출: BUY {symbol} ~{notional} (실거래!)")
         broker.submit_order(Order(symbol=symbol, side="buy", notional=notional))
