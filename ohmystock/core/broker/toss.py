@@ -141,6 +141,15 @@ class TossBroker:
     def get_positions(self) -> dict[str, float]:
         return {h["symbol"]: h["value"] for h in self.get_holdings()}
 
+    def exchange_rate(self, base: str = "USD", quote: str = "KRW") -> float:
+        """1 base = ? quote 환율(예: USD→KRW)."""
+        headers = self._acct_headers()
+        r = self._result(self.client.get(
+            "/api/v1/exchange-rate",
+            params={"baseCurrency": base, "quoteCurrency": quote},
+            headers=headers))
+        return float(r["rate"])
+
     # --- 시세 / 주문 --------------------------------------------------------
     def _last_price(self, symbol: str) -> float:
         resp = self.client.get(

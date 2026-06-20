@@ -42,6 +42,9 @@ export default function BrokerAccountPanel() {
   }, [broker, load])
 
   const fmt = formatter(broker)
+  const krwFmt = new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW', maximumFractionDigits: 0 })
+  const toKrw = (usd: number): string | null =>
+    data && data.krw_rate ? ` (≈${krwFmt.format(usd * data.krw_rate)})` : null
 
   function tabStyle(active: boolean): CSSProperties {
     return {
@@ -94,12 +97,16 @@ export default function BrokerAccountPanel() {
               </div>
               <div style={{ fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>
                 {fmt.format(data.equity)}
+                {data.krw_rate && (
+                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{toKrw(data.equity)}</span>
+                )}
               </div>
             </div>
             <div>
               <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>예수금 (cash)</div>
               <div style={{ fontSize: 22, fontVariantNumeric: 'tabular-nums' }}>
                 {fmt.format(data.cash)}
+                {data.krw_rate && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{toKrw(data.cash)}</span>}
               </div>
             </div>
           </div>

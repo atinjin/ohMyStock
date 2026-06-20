@@ -232,12 +232,19 @@ def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None,
         except Exception as exc:
             raise HTTPException(status_code=502, detail=str(exc))
         mode = "paper" if getattr(b, "paper", False) else "live"
+        krw_rate = None
+        if broker == "toss":
+            try:
+                krw_rate = b.exchange_rate("USD", "KRW")
+            except Exception:
+                krw_rate = None
         return {
             "broker": broker,
             "mode": mode,
             "equity": acct.equity,
             "cash": acct.cash,
             "positions": positions,
+            "krw_rate": krw_rate,
         }
 
     @app.get("/api/market/overview")

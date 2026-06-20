@@ -270,6 +270,7 @@ export interface BrokerAccount {
   equity: number
   cash: number
   positions: { symbol: string; name: string; value: number }[]
+  krw_rate: number | null
 }
 
 export async function getBrokerAccount(

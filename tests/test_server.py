@@ -139,6 +139,32 @@ def test_broker_account_error_returns_502(tmp_path):
     assert "키 없음" in resp.json()["detail"]
 
 
+def test_broker_account_toss_includes_krw_rate(tmp_path):
+    from ohmystock.core.broker.base import Account
+
+    class _TossFake:
+        paper = False
+
+        def get_account(self):
+            return Account(equity=15028.0, cash=0.15)
+
+        def get_holdings(self):
+            return [{"symbol": "AAPL", "name": "애플", "value": 1795.0}]
+
+        def exchange_rate(self, base="USD", quote="KRW"):
+            return 1385.5
+
+    client = _client_with_broker(tmp_path, lambda name: _TossFake())
+    body = client.get("/api/broker/account?broker=toss").json()
+    assert body["krw_rate"] == 1385.5
+
+
+def test_broker_account_kis_krw_rate_null(tmp_path):
+    body = _client_with_broker(tmp_path, lambda name: _FakeBroker()).get(
+        "/api/broker/account?broker=kis").json()
+    assert body["krw_rate"] is None
+
+
 def test_market_overview_endpoint_and_cache(tmp_path):
     import pandas as pd
     calls = {"n": 0}

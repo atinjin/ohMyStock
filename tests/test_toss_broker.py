@@ -318,3 +318,16 @@ def test_get_holdings_includes_name():
                           token_expires_at=datetime(2030, 1, 1))
     assert broker.get_holdings() == [
         {"symbol": "AAPL", "name": "애플", "value": 1795.0}]
+
+
+def test_exchange_rate():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/v1/exchange-rate":
+            assert request.url.params.get("baseCurrency") == "USD"
+            assert request.url.params.get("quoteCurrency") == "KRW"
+            return httpx.Response(200, json={"result": {"rate": "1385.50", "midRate": "1384.0"}})
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    assert broker.exchange_rate("USD", "KRW") == 1385.5
