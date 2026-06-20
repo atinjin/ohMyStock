@@ -86,6 +86,9 @@ export default function MarketOverviewPanel() {
     <div className="card">
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <h2 className="card-title" style={{ margin: 0 }}>시장 개요</h2>
+        <span style={{ fontSize: 11, color: 'var(--text-dim)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px' }}>
+          지연 시세 · 약 15분
+        </span>
         {data && (
           <div style={{ display: 'flex', gap: 16, fontSize: 13, color: 'var(--text-dim)' }}>
             <span>국내 장 {statusDot(data.markets.kr.open)}</span>
