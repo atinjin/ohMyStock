@@ -262,3 +262,43 @@ def test_env_key_fallback(monkeypatch):
     assert broker.app_key == "env_key"
     assert broker.app_secret == "env_secret"
     assert broker.account_no == "99999999-01"
+
+
+def test_inquire_balance_retries_on_rate_limit():
+    # KIS 초당 거래 제한(EGW00201)은 실행 전 거부 → 짧게 대기 후 재시도
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return httpx.Response(500, json={
+                "rt_cd": "1", "msg_cd": "EGW00201",
+                "msg1": "초당 거래건수를 초과하였습니다."})
+        return httpx.Response(200, json={
+            "output1": [],
+            "output2": [{"tot_evlu_amt": "1000000", "dnca_tot_amt": "500000"}]})
+
+    slept = []
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1),
+                          sleep=lambda s: slept.append(s))
+    assert broker.get_account() == Account(equity=1000000.0, cash=500000.0)
+    assert calls["n"] == 2          # 1차 거부 후 재시도
+    assert slept == [0.5]           # 재시도 전 대기
+
+
+def test_send_does_not_retry_non_rate_limit_500():
+    # EGW00201 이 아닌 500 은 재시도 없이 즉시 실패
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(500, json={
+            "rt_cd": "1", "msg_cd": "EGW99999", "msg1": "기타 오류"})
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1),
+                          sleep=lambda s: None)
+    with pytest.raises(httpx.HTTPStatusError):
+        broker.get_account()
+    assert calls["n"] == 1          # 재시도 없음
