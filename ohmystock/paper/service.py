@@ -62,6 +62,7 @@ class PaperService:
         )
         return {
             "exists": True,
+            "currency": self.config.currency,
             "config": {
                 "strategy": account.strategy, "params": account.params,
                 "symbols": account.symbols, "initial_capital": account.initial_capital,

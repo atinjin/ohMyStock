@@ -49,6 +49,7 @@ def test_backtest_ok(tmp_path):
     assert len(data["metrics"]) == 6
     assert len(data["validations"]) == 12  # 11 + 과최적화
     assert len(data["equity_curve"]) > 0
+    assert data["currency"] == "USD"
 
 
 def test_backtest_unknown_strategy(tmp_path):
@@ -185,3 +186,22 @@ def test_market_overview_endpoint_and_cache(tmp_path):
     assert after_first == 7            # 심볼 7개 1회씩
     client.get("/api/market/overview")  # TTL 내 → 캐시
     assert calls["n"] == after_first    # provider 재호출 없음
+
+
+def test_fx_endpoint(tmp_path):
+    calls = {"n": 0}
+
+    def provider(symbol):
+        calls["n"] += 1
+        assert symbol == "USDKRW=X"
+        return {"last": 1531.0, "prev_close": 1530.0, "year_high": 1600.0,
+                "year_low": 1300.0, "sparkline": [1530.0, 1531.0]}
+
+    adapter = YFinanceAdapter(cache=ParquetCache(tmp_path), downloader=_fake_dl)
+    client = TestClient(create_app(adapter=adapter, market_provider=provider))
+    r = client.get("/api/fx?base=USD&quote=KRW")
+    assert r.status_code == 200
+    assert r.json() == {"base": "USD", "quote": "KRW", "rate": 1531.0}
+    client.get("/api/fx")            # 기본 USD/KRW → 캐시
+    assert calls["n"] == 1           # provider 1회만
+    assert client.get("/api/fx?base=EUR&quote=KRW").status_code == 400

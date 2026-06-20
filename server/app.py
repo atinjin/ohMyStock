@@ -119,6 +119,7 @@ def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None,
     app.state.market_cache = {}
     app.state.market_cal_kr = None
     app.state.market_cal_us = None
+    app.state.fx_cache = {}
 
     app.add_middleware(
         CORSMiddleware,
@@ -300,6 +301,23 @@ def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None,
         cache["data"] = data
         cache["ts"] = now_ts
         return data
+
+    @app.get("/api/fx")
+    def fx(base: str = "USD", quote: str = "KRW"):
+        """USD→KRW 환율(준실시간, 300초 캐시). 다른 통화쌍은 400."""
+        if (base, quote) != ("USD", "KRW"):
+            raise HTTPException(status_code=400, detail="현재 USD→KRW만 지원합니다")
+        cache = app.state.fx_cache
+        now_ts = time.time()
+        if cache.get("rate") is not None and now_ts - cache.get("ts", 0) < 300:
+            return {"base": base, "quote": quote, "rate": cache["rate"]}
+        try:
+            rate = float(app.state.market_provider("USDKRW=X")["last"])
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=str(exc))
+        cache["rate"] = rate
+        cache["ts"] = now_ts
+        return {"base": base, "quote": quote, "rate": rate}
 
     return app
 

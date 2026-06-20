@@ -7,19 +7,20 @@ import type {
 import InfoButton from './InfoButton'
 import SymbolPicker from './SymbolPicker'
 import { addRecentSymbols } from '../history'
-import { withCommas, koreanAmount } from '../format'
+import { withCommas, usd, approxKrw } from '../format'
 
 interface Props {
   strategies: StrategyInfo[]
   loading: boolean
   onRun: (req: BacktestRequest) => void
   onPreview?: (req: BacktestRequest) => void
+  fxRate?: number | null
 }
 
 const DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META']
 const DEFAULT_START = '2020-01-01'
 const DEFAULT_END = '2024-01-01'
-const DEFAULT_CAPITAL = 5_000_000
+const DEFAULT_CAPITAL = 10000
 
 function coerceParam(original: ParamValue, raw: string): ParamValue {
   if (typeof original === 'number') {
@@ -37,6 +38,7 @@ export default function BacktestForm({
   loading,
   onRun,
   onPreview,
+  fxRate,
 }: Props) {
   const [strategyName, setStrategyName] = useState('')
   const [params, setParams] = useState<Record<string, ParamValue>>({})
@@ -194,10 +196,11 @@ export default function BacktestForm({
             }
             disabled={loading}
           />
-          <span className="capital-suffix">원</span>
+          <span className="capital-suffix">USD</span>
         </div>
         <span className="capital-reading">
-          = <strong>{koreanAmount(capital)}</strong>
+          = <strong>{usd(capital)}</strong>
+          <span style={{ color: 'var(--text-dim)' }}>{approxKrw(capital, fxRate ?? null)}</span>
         </span>
       </label>
 

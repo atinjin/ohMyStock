@@ -307,3 +307,19 @@ export async function getMarketOverview(): Promise<MarketOverview> {
   }
   return (await res.json()) as MarketOverview
 }
+
+// 환율(USD→KRW)
+
+export interface Fx {
+  base: string
+  quote: string
+  rate: number
+}
+
+export async function getFx(): Promise<Fx> {
+  const res = await fetch('/api/fx')
+  if (!res.ok) {
+    return parseError(res)
+  }
+  return (await res.json()) as Fx
+}
