@@ -57,7 +57,9 @@ class TossBroker:
                 "client_secret": self.client_secret,
             },
         )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            # 본문에 원인(예: "IP address not allowed")이 담기므로 그대로 노출
+            raise ValueError(f"TOSS 토큰 발급 실패 [{resp.status_code}]: {resp.text}")
         j = resp.json()  # OAuth 응답은 envelope 아님
         self.access_token = j["access_token"]
         expires_in = int(j.get("expires_in", 0))
