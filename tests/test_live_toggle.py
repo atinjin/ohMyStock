@@ -88,3 +88,19 @@ def test_live_execute_rejects_paper_broker_in_live():
         live_execute(["AAPL"], date(2024, 1, 1), date(2024, 3, 1),
                      FakeAdapter(), Momentum(lookback=20, top_k=2), Config(),
                      mode="live", broker=PaperBroker(cash=1000.0), env={})
+
+
+def test_live_execute_broker_name_forwarded():
+    # broker_name 이 build_broker 까지 전달되는지 — toss + 키 없음 → ValueError
+    with pytest.raises(ValueError):
+        live_execute(["AAPL"], date(2024, 1, 1), date(2024, 3, 1),
+                     FakeAdapter(), Momentum(lookback=20, top_k=2), Config(),
+                     mode="live", broker_name="toss", env={})
+
+
+def test_run_cli_broker_flag_forwarded():
+    # --broker toss + live + 키 없음 → ValueError (선택이 build_broker 까지 전달됨)
+    with pytest.raises(ValueError):
+        run_cli(["--mode", "live", "--broker", "toss", "--symbols", "AAPL",
+                 "--start", "2024-01-01", "--end", "2024-03-01"],
+                adapter=FakeAdapter(), env={})
