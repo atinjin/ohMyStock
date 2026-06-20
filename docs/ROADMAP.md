@@ -149,7 +149,7 @@
 
 **v2** (키 필요):
 - [ ] 뉴스 레이어 — US(yfinance/Finnhub) · KR(네이버 검색 API) 최근 헤드라인 → (선택) LLM 한글 요약 태그(Anthropic 키). 시장 개요 배지를 실제 뉴스 맥락으로
-- [ ] 인트라데이 실시간 지수(현재 v1은 EOD 종가)
+- [x] 인트라데이(준실시간) 지수 — yfinance `fast_info`(현재가·전일종가·52주), value=현재가·change=현재가−전일종가, 인트라데이 5분봉 스파크라인, 60초 캐시, "지연 시세" 라벨 ([spec](superpowers/specs/2026-06-20-intraday-market-overview-design.md) · [plan](superpowers/plans/2026-06-20-intraday-market-overview.md))
 
 ### 🟢 대시보드 고도화
 - [ ] 전략 비교 뷰(다중 결과 나란히)
