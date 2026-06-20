@@ -281,3 +281,28 @@ export async function getBrokerAccount(
   }
   return (await res.json()) as BrokerAccount
 }
+
+// 시장 개요
+
+export interface MarketItem {
+  key: string
+  label: string
+  value: number
+  change: number
+  change_pct: number
+  sparkline: number[]
+  badge: string | null
+}
+
+export interface MarketOverview {
+  markets: { kr: { open: boolean }; us: { open: boolean } }
+  items: MarketItem[]
+}
+
+export async function getMarketOverview(): Promise<MarketOverview> {
+  const res = await fetch('/api/market/overview')
+  if (!res.ok) {
+    return parseError(res)
+  }
+  return (await res.json()) as MarketOverview
+}
