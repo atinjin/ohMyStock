@@ -70,13 +70,14 @@
 - [x] 사용자용 실 스모크 스크립트(`scripts/toss_smoke.py`, 실주문 이중 게이트) ([spec](superpowers/specs/2026-06-20-toss-broker-integration-design.md) · [plan](superpowers/plans/2026-06-20-toss-broker-integration.md))
 - [ ] (후속) broker_select/live 모드 배선, KR 종목·다통화, 정정/취소
 
-### 🔴 KIS 어댑터 실연동 검증
-인터페이스만 준비된 KIS를 실제 모의투자 계좌로 검증.
-- [ ] OAuth 토큰 발급·만료 자동 갱신
-- [ ] 실 응답 스키마 검증(잔고·주문·체결)
-- [ ] 주문 보안 필드(hashkey 등) 처리
-- [ ] notional → 수량 변환(소수점 거래 제약 반영)
-- [ ] 모의투자 계좌 end-to-end 스모크
+### 🟢 KIS 어댑터 실연동
+인터페이스만 있던 `KISBroker`를 프로덕션급으로 재작성. **모의투자(paper) 기본**, `paper=False`만 실전. ([spec](superpowers/specs/2026-06-20-kis-real-integration-design.md) · [plan](superpowers/plans/2026-06-20-kis-real-integration.md))
+- [x] OAuth 토큰 발급·만료 자동 갱신(`_ensure_token`, `access_token_token_expired`/`expires_in`)
+- [x] 실 응답 스키마 — 잔고(output1/output2 + 쿼리 파라미터)·현재가(`stck_prpr`)·주문(`rt_cd` 판정)
+- [x] 주문 보안 필드 hashkey 처리(옵션, 기본 off)
+- [x] notional → 정수 수량 변환(현재가 `floor`, 1주 미만·0가 안전 처리) + 모의/실전 tr_id 분기
+- [x] 사용자용 모의투자 스모크 스크립트(`scripts/kis_smoke.py`, 실주문 이중 게이트) — 오프라인 MockTransport 16 테스트
+- [ ] (후속) 사용자 실 모의투자 계좌 end-to-end 실행, broker_select/live 배선
 
 ### 🟡 거래 알림
 - [ ] `Notifier` 인터페이스
