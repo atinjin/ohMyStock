@@ -148,3 +148,38 @@ def test_build_live_toss_missing_keys_raises():
     env = {"OHMYSTOCK_ALLOW_REAL_MONEY": "1"}             # 동의는 있으나 키 없음
     with pytest.raises(ValueError):
         build_broker("live", cash=1000.0, broker_name="toss", env=env, client=_mock_client())
+
+
+def test_build_live_alpaca_paper_in_custom_host_requires_ack():
+    # 호스트 allowlist 하드닝: "paper"가 호스트에 들어간 비-Alpaca 실거래 URL도 동의 필요
+    env = {"ALPACA_API_KEY": "k", "ALPACA_SECRET_KEY": "s",
+           "ALPACA_BASE_URL": "https://paper.fake-live.example"}
+    with pytest.raises(ValueError):                       # 동의 없음 → 거부
+        build_broker("live", cash=1000.0, broker_name="alpaca", env=env, client=_mock_client())
+    env["OHMYSTOCK_ALLOW_REAL_MONEY"] = "1"
+    b = build_broker("live", cash=1000.0, broker_name="alpaca", env=env, client=_mock_client())
+    assert isinstance(b, AlpacaBroker)
+
+
+def test_build_live_alpaca_default_paper_host_no_ack():
+    # 진짜 Alpaca 페이퍼 호스트(기본)는 동의 없이 생성(가짜 돈)
+    env = {"ALPACA_API_KEY": "k", "ALPACA_SECRET_KEY": "s"}
+    b = build_broker("live", cash=1000.0, broker_name="alpaca", env=env, client=_mock_client())
+    assert isinstance(b, AlpacaBroker)
+
+
+@pytest.mark.parametrize("ack", ["0", "", " ", "no", "false", "2", "y"])
+def test_real_money_ack_falsy_values_refused(ack):
+    env = {"TOSS_CLIENT_ID": "c", "TOSS_CLIENT_SECRET": "s",
+           "OHMYSTOCK_ALLOW_REAL_MONEY": ack}
+    with pytest.raises(ValueError):
+        build_broker("live", cash=1000.0, broker_name="toss", env=env, client=_mock_client())
+
+
+@pytest.mark.parametrize("ack", ["1", "true", "yes", " TRUE ", "Yes"])
+def test_real_money_ack_truthy_values_accepted(ack):
+    from ohmystock.core.broker.toss import TossBroker
+    env = {"TOSS_CLIENT_ID": "c", "TOSS_CLIENT_SECRET": "s",
+           "OHMYSTOCK_ALLOW_REAL_MONEY": ack}
+    b = build_broker("live", cash=1000.0, broker_name="toss", env=env, client=_mock_client())
+    assert isinstance(b, TossBroker)

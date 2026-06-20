@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 
 from ohmystock.core.broker.paper import PaperBroker
 from ohmystock.core.broker.alpaca import AlpacaBroker
@@ -9,6 +10,8 @@ _VALID_MODES = ("dry-run", "live")
 _DEFAULT_PAPER_URL = "https://paper-api.alpaca.markets"
 _VALID_BROKERS = ("alpaca", "toss", "kis")
 _TRUTHY = ("1", "true", "yes")
+# 가짜 돈(모의)으로 인정하는 Alpaca 호스트 allowlist. 그 외 호스트는 모두 실제 돈 취급.
+_ALPACA_PAPER_HOSTS = ("paper-api.alpaca.markets",)
 
 
 def resolve_mode(cli_mode: str | None = None, env: dict | None = None) -> str:
@@ -33,7 +36,7 @@ def _require_real_money_ack(env, label):
     val = (env.get("OHMYSTOCK_ALLOW_REAL_MONEY") or "").strip().lower()
     if val not in _TRUTHY:
         raise ValueError(
-            f"{label}는 실제 돈이 걸린 주문입니다. OHMYSTOCK_ALLOW_REAL_MONEY=1 을 설정해 "
+            f"{label} — 실제 돈이 걸린 주문입니다. OHMYSTOCK_ALLOW_REAL_MONEY=1 을 설정해 "
             f"명시적으로 동의하거나, 가짜 돈(페이퍼/모의) 구성 또는 dry-run으로 실행하세요."
         )
 
@@ -45,7 +48,8 @@ def _build_alpaca(env, client):
         raise ValueError(
             "alpaca live 모드인데 ALPACA_API_KEY/ALPACA_SECRET_KEY가 없습니다.")
     base_url = env.get("ALPACA_BASE_URL", _DEFAULT_PAPER_URL)
-    if "paper" not in base_url.lower():
+    host = (urlparse(base_url).hostname or "").lower()
+    if host not in _ALPACA_PAPER_HOSTS:   # allowlist 외 호스트는 실제 돈 취급(fail-safe)
         _require_real_money_ack(env, f"Alpaca 라이브({base_url})")
     return AlpacaBroker(api_key=key, secret_key=secret, base_url=base_url, client=client)
 
