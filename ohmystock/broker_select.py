@@ -5,6 +5,7 @@ from ohmystock.core.broker.alpaca import AlpacaBroker
 
 _VALID_MODES = ("dry-run", "live")
 _DEFAULT_PAPER_URL = "https://paper-api.alpaca.markets"
+_VALID_BROKERS = ("alpaca", "toss", "kis")
 
 
 def resolve_mode(cli_mode: str | None = None, env: dict | None = None) -> str:
@@ -14,6 +15,15 @@ def resolve_mode(cli_mode: str | None = None, env: dict | None = None) -> str:
     if mode not in _VALID_MODES:
         raise ValueError(f"알 수 없는 모드: {mode!r} (dry-run|live)")
     return mode
+
+
+def resolve_broker(cli_broker: str | None = None, env: dict | None = None) -> str:
+    """브로커 해석: CLI > env(OHMYSTOCK_BROKER) > 기본 'alpaca'. 잘못된 값 ValueError."""
+    env = os.environ if env is None else env
+    broker = cli_broker if cli_broker is not None else env.get("OHMYSTOCK_BROKER", "alpaca")
+    if broker not in _VALID_BROKERS:
+        raise ValueError(f"알 수 없는 브로커: {broker!r} (alpaca|toss|kis)")
+    return broker
 
 
 def build_broker(mode: str, *, cash: float, env: dict | None = None, client=None):

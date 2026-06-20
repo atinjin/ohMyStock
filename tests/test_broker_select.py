@@ -66,3 +66,30 @@ def test_build_dry_run_ignores_alpaca_keys():
     b = build_broker("dry-run", cash=1000.0,
                      env={"ALPACA_API_KEY": "k", "ALPACA_SECRET_KEY": "s"})
     assert isinstance(b, PaperBroker)
+
+
+def test_resolve_broker_default_alpaca():
+    from ohmystock.broker_select import resolve_broker
+    assert resolve_broker(None, env={}) == "alpaca"
+
+
+def test_resolve_broker_cli():
+    from ohmystock.broker_select import resolve_broker
+    assert resolve_broker("toss", env={}) == "toss"
+
+
+def test_resolve_broker_env():
+    from ohmystock.broker_select import resolve_broker
+    assert resolve_broker(None, env={"OHMYSTOCK_BROKER": "kis"}) == "kis"
+
+
+def test_resolve_broker_cli_overrides_env():
+    from ohmystock.broker_select import resolve_broker
+    assert resolve_broker("alpaca", env={"OHMYSTOCK_BROKER": "kis"}) == "alpaca"
+
+
+def test_resolve_broker_invalid_raises():
+    from ohmystock.broker_select import resolve_broker
+    import pytest
+    with pytest.raises(ValueError):
+        resolve_broker("ibkr", env={})
