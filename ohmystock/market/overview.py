@@ -1,4 +1,4 @@
-"""주요 지수·환율 시장 개요 계산(순수함수). provider 로 일봉을 받아 카드 데이터를 만든다."""
+"""주요 지수·환율 시장 개요 계산(순수함수). provider 로 현재가 묶음을 받아 카드 데이터를 만든다."""
 
 _ITEMS = [
     {"key": "nasdaq", "label": "나스닥", "symbol": "^IXIC", "vix": False},
@@ -25,21 +25,20 @@ def build_overview(provider, *, kr_cal, us_cal, now, items=_ITEMS):
     out_items = []
     for cfg in items:
         try:
-            df = provider(cfg["symbol"])
-            closes = [float(c) for c in df["close"].dropna().tolist()]
-            if len(closes) < 2:
-                continue
-            value, prev = closes[-1], closes[-2]
-            change = value - prev
+            q = provider(cfg["symbol"])
+            last = float(q["last"])
+            prev = float(q["prev_close"])
+            change = last - prev
             change_pct = (change / prev * 100.0) if prev else 0.0
+            spark = [round(float(x), 2) for x in (q.get("sparkline") or [])[-30:]]
             out_items.append({
                 "key": cfg["key"],
                 "label": cfg["label"],
-                "value": round(value, 2),
+                "value": round(last, 2),
                 "change": round(change, 2),
                 "change_pct": round(change_pct, 2),
-                "sparkline": [round(x, 2) for x in closes[-30:]],
-                "badge": _badge(cfg, value, max(closes), min(closes)),
+                "sparkline": spark,
+                "badge": _badge(cfg, last, float(q["year_high"]), float(q["year_low"])),
             })
         except Exception:
             continue

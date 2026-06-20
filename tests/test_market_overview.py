@@ -1,5 +1,3 @@
-import pandas as pd
-
 from ohmystock.market.overview import build_overview
 
 
@@ -11,17 +9,22 @@ class _Cal:
         return self._open
 
 
-def _df(closes):
-    idx = pd.date_range("2025-01-01", periods=len(closes), freq="B")
-    return pd.DataFrame({"open": closes, "high": closes, "low": closes,
-                         "close": closes, "volume": [1] * len(closes)}, index=idx)
+def _q(last, prev, sparkline=None, year_high=None, year_low=None):
+    spark = sparkline if sparkline is not None else [prev, last]
+    return {
+        "last": last,
+        "prev_close": prev,
+        "year_high": year_high if year_high is not None else max(spark + [last]),
+        "year_low": year_low if year_low is not None else min(spark + [last]),
+        "sparkline": spark,
+    }
 
 
 def test_build_overview_value_change_sparkline_and_market_status():
-    closes = [100.0] * 40 + [110.0, 121.0]   # 직전 110, 최근 121
+    spark = [100.0] * 28 + [110.0, 121.0]  # 30개
     items = [{"key": "x", "label": "X", "symbol": "^X", "vix": False}]
-    res = build_overview(lambda s: _df(closes), kr_cal=_Cal(False),
-                         us_cal=_Cal(True), now=None, items=items)
+    res = build_overview(lambda s: _q(121.0, 110.0, sparkline=spark),
+                         kr_cal=_Cal(False), us_cal=_Cal(True), now=None, items=items)
     it = res["items"][0]
     assert it["key"] == "x" and it["label"] == "X"
     assert it["value"] == 121.0
@@ -33,27 +36,33 @@ def test_build_overview_value_change_sparkline_and_market_status():
     assert res["markets"]["kr"]["open"] is False
 
 
-def test_build_overview_badge_52w_high():
-    closes = [50.0] * 50 + [98.0, 99.0]      # 52주 고가 99, 최근 99 ≥ 0.98*99
+def test_build_overview_trims_sparkline_to_30():
+    spark = [float(i) for i in range(50)]  # 50개 → 30개로 잘림
     items = [{"key": "x", "label": "X", "symbol": "^X", "vix": False}]
-    res = build_overview(lambda s: _df(closes), kr_cal=_Cal(True),
-                         us_cal=_Cal(True), now=None, items=items)
+    res = build_overview(lambda s: _q(49.0, 48.0, sparkline=spark),
+                         kr_cal=_Cal(True), us_cal=_Cal(True), now=None, items=items)
+    assert len(res["items"][0]["sparkline"]) == 30
+    assert res["items"][0]["sparkline"][-1] == 49.0
+
+
+def test_build_overview_badge_52w_high():
+    items = [{"key": "x", "label": "X", "symbol": "^X", "vix": False}]
+    res = build_overview(lambda s: _q(99.0, 98.0, year_high=99.0, year_low=50.0),
+                         kr_cal=_Cal(True), us_cal=_Cal(True), now=None, items=items)
     assert res["items"][0]["badge"] == "52주 고점 근접"
 
 
 def test_build_overview_badge_52w_low():
-    closes = [100.0] * 50 + [62.0, 61.0]     # 52주 저가 61, 최근 61 ≤ 1.02*61
     items = [{"key": "x", "label": "X", "symbol": "^X", "vix": False}]
-    res = build_overview(lambda s: _df(closes), kr_cal=_Cal(True),
-                         us_cal=_Cal(True), now=None, items=items)
+    res = build_overview(lambda s: _q(61.0, 62.0, year_high=100.0, year_low=61.0),
+                         kr_cal=_Cal(True), us_cal=_Cal(True), now=None, items=items)
     assert res["items"][0]["badge"] == "52주 저점 근접"
 
 
 def test_build_overview_badge_vix_high_volatility():
-    closes = [12.0] * 50 + [19.0, 25.0]      # VIX 최근 25 ≥ 20
     items = [{"key": "vix", "label": "VIX", "symbol": "^VIX", "vix": True}]
-    res = build_overview(lambda s: _df(closes), kr_cal=_Cal(True),
-                         us_cal=_Cal(True), now=None, items=items)
+    res = build_overview(lambda s: _q(25.0, 19.0, year_high=30.0, year_low=10.0),
+                         kr_cal=_Cal(True), us_cal=_Cal(True), now=None, items=items)
     assert res["items"][0]["badge"] == "고변동성"
 
 

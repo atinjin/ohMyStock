@@ -166,15 +166,12 @@ def test_broker_account_kis_krw_rate_null(tmp_path):
 
 
 def test_market_overview_endpoint_and_cache(tmp_path):
-    import pandas as pd
     calls = {"n": 0}
 
     def provider(symbol):
         calls["n"] += 1
-        closes = [100.0] * 40 + [110.0, 121.0]
-        idx = pd.date_range("2025-01-01", periods=len(closes), freq="B")
-        return pd.DataFrame({"open": closes, "high": closes, "low": closes,
-                             "close": closes, "volume": [1] * len(closes)}, index=idx)
+        return {"last": 121.0, "prev_close": 110.0, "year_high": 130.0,
+                "year_low": 90.0, "sparkline": [110.0, 121.0]}
 
     adapter = YFinanceAdapter(cache=ParquetCache(tmp_path), downloader=_fake_dl)
     client = TestClient(create_app(adapter=adapter, market_provider=provider))
