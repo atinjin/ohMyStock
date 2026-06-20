@@ -60,6 +60,13 @@ def test_step_without_account_raises(tmp_path):
         svc.step()
 
 
+def test_get_state_includes_currency(tmp_path):
+    svc = _service(tmp_path)
+    svc.init_account("MACrossover", {"short": 3, "long": 10}, ["AAPL"],
+                     1_000_000, "2024-01-01", "2024-03-31")
+    assert svc.get_state()["currency"] == "USD"
+
+
 def test_restart_continuity(tmp_path):
     # 새 store 인스턴스로 같은 DB를 열어 이어서 진행해도 상태가 연속(영속화 핵심)
     db = tmp_path / "p.db"

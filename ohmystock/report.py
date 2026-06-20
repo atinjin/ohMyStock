@@ -113,6 +113,7 @@ def full_report(symbols, start, end, adapter, strategy, config) -> dict:
 
     return {
         "strategy": type(strategy).__name__,
+        "currency": config.currency,
         "symbols": list(symbols),
         "start": str(start),
         "end": str(end),

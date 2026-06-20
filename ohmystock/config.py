@@ -4,7 +4,8 @@ from dataclasses import dataclass
 @dataclass
 class Config:
     """시스템 전역 설정. 모든 값은 설정으로 조정 가능."""
-    initial_capital: float = 5_000_000      # 원
+    initial_capital: float = 5_000_000      # USD 기준(시스템 통화). 검증 비율엔 영향 없음
+    currency: str = "USD"                    # 시스템 기준 통화
     mdd_limit: float = 0.20                  # 고점 대비 -20% 경고선
     trading_days: int = 252                  # 연환산 거래일수
     risk_free_rate: float = 0.0              # 무위험 연수익률
