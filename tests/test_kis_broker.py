@@ -232,6 +232,22 @@ def test_submit_order_with_hashkey():
     assert captured["hashkey"] == "HASHED"
 
 
+def test_submit_order_paper_sell_and_live_buy_tr_ids():
+    # submit_order 경로로 paper 매도(V*)·실전 매수(T*) tr_id 분기까지 검증(비대칭 갭 차단)
+    cap_p = {}
+    paper = _make_broker(_price_and_order_handler(cap_p, price=10000.0),
+                         access_token="tok", token_expires_at=datetime(2030, 1, 1))
+    paper.submit_order(Order(symbol="005930", side="sell", notional=20000.0))
+    assert cap_p["tr_id"] == "VTTC0801U"   # 모의 매도
+
+    cap_l = {}
+    live = _make_broker(_price_and_order_handler(cap_l, price=10000.0),
+                        paper=False, access_token="tok",
+                        token_expires_at=datetime(2030, 1, 1))
+    live.submit_order(Order(symbol="005930", side="buy", notional=30000.0))
+    assert cap_l["tr_id"] == "TTTC0802U"   # 실전 매수
+
+
 def test_env_key_fallback(monkeypatch):
     monkeypatch.setenv("KIS_APP_KEY", "env_key")
     monkeypatch.setenv("KIS_APP_SECRET", "env_secret")
