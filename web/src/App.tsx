@@ -19,6 +19,7 @@ import PaperPanel from './components/PaperPanel'
 import ScoreCard from './components/ScoreCard'
 import SchedulerRunsPanel from './components/SchedulerRunsPanel'
 import BrokerAccountPanel from './components/BrokerAccountPanel'
+import MarketOverviewPanel from './components/MarketOverviewPanel'
 
 const currency = new Intl.NumberFormat('ko-KR', {
   style: 'currency',
@@ -108,6 +109,7 @@ function App() {
         </aside>
 
         <main className="app-main">
+          <MarketOverviewPanel />
           {error && <div className="alert alert-error">{error}</div>}
           {previewError && (
             <div className="alert alert-error">{previewError}</div>

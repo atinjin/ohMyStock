@@ -56,3 +56,8 @@ class ExchangeMarketCalendar:
 def us_market_calendar() -> ExchangeMarketCalendar:
     """미국(NYSE/XNYS) 캘린더."""
     return ExchangeMarketCalendar("XNYS")
+
+
+def kr_market_calendar() -> ExchangeMarketCalendar:
+    """한국(KRX/XKRX) 캘린더."""
+    return ExchangeMarketCalendar("XKRX")

@@ -150,14 +150,20 @@ class KISBroker:
             cash=float(summary["dnca_tot_amt"]),
         )
 
-    def get_positions(self) -> dict[str, float]:
-        """종목코드 -> 평가금액(원). 평가금액 0 이하 종목은 제외."""
+    def get_holdings(self) -> list[dict]:
+        """보유 종목 [{symbol, name, value}]. 평가금액 0 이하 제외."""
         data = self._inquire_balance()
-        return {
-            row["pdno"]: float(row["evlu_amt"])
-            for row in data["output1"]
-            if float(row.get("evlu_amt", 0)) > 0
-        }
+        out = []
+        for row in data["output1"]:
+            value = float(row.get("evlu_amt", 0))
+            if value <= 0:
+                continue
+            out.append({"symbol": row["pdno"],
+                        "name": row.get("prdt_name", ""), "value": value})
+        return out
+
+    def get_positions(self) -> dict[str, float]:
+        return {h["symbol"]: h["value"] for h in self.get_holdings()}
 
     def _inquire_balance(self) -> dict:
         self._ensure_token()

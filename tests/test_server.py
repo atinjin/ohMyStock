@@ -91,8 +91,8 @@ class _FakeBroker:
         from ohmystock.core.broker.base import Account
         return Account(equity=10000000.0, cash=9000000.0)
 
-    def get_positions(self):
-        return {"005930": 354000.0}
+    def get_holdings(self):
+        return [{"symbol": "005930", "name": "삼성전자", "value": 354000.0}]
 
 
 def test_broker_account_ok(tmp_path):
@@ -110,7 +110,8 @@ def test_broker_account_ok(tmp_path):
     assert body["mode"] == "paper"
     assert body["equity"] == 10000000.0
     assert body["cash"] == 9000000.0
-    assert body["positions"] == [{"symbol": "005930", "value": 354000.0}]
+    assert body["positions"] == [
+        {"symbol": "005930", "name": "삼성전자", "value": 354000.0}]
     # 캐시: 같은 브로커 재조회 시 factory 는 1회만
     client.get("/api/broker/account?broker=kis")
     assert made["n"] == 1
@@ -129,10 +130,61 @@ def test_broker_account_error_returns_502(tmp_path):
         def get_account(self):
             raise RuntimeError("키 없음")
 
-        def get_positions(self):
-            return {}
+        def get_holdings(self):
+            return []
 
     client = _client_with_broker(tmp_path, lambda name: _BoomBroker())
     resp = client.get("/api/broker/account?broker=toss")
     assert resp.status_code == 502
     assert "키 없음" in resp.json()["detail"]
+
+
+def test_broker_account_toss_includes_krw_rate(tmp_path):
+    from ohmystock.core.broker.base import Account
+
+    class _TossFake:
+        paper = False
+
+        def get_account(self):
+            return Account(equity=15028.0, cash=0.15)
+
+        def get_holdings(self):
+            return [{"symbol": "AAPL", "name": "애플", "value": 1795.0}]
+
+        def exchange_rate(self, base="USD", quote="KRW"):
+            return 1385.5
+
+    client = _client_with_broker(tmp_path, lambda name: _TossFake())
+    body = client.get("/api/broker/account?broker=toss").json()
+    assert body["krw_rate"] == 1385.5
+
+
+def test_broker_account_kis_krw_rate_null(tmp_path):
+    body = _client_with_broker(tmp_path, lambda name: _FakeBroker()).get(
+        "/api/broker/account?broker=kis").json()
+    assert body["krw_rate"] is None
+
+
+def test_market_overview_endpoint_and_cache(tmp_path):
+    import pandas as pd
+    calls = {"n": 0}
+
+    def provider(symbol):
+        calls["n"] += 1
+        closes = [100.0] * 40 + [110.0, 121.0]
+        idx = pd.date_range("2025-01-01", periods=len(closes), freq="B")
+        return pd.DataFrame({"open": closes, "high": closes, "low": closes,
+                             "close": closes, "volume": [1] * len(closes)}, index=idx)
+
+    adapter = YFinanceAdapter(cache=ParquetCache(tmp_path), downloader=_fake_dl)
+    client = TestClient(create_app(adapter=adapter, market_provider=provider))
+    resp = client.get("/api/market/overview")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert isinstance(body["markets"]["us"]["open"], bool)
+    assert isinstance(body["markets"]["kr"]["open"], bool)
+    assert len(body["items"]) == 7
+    after_first = calls["n"]
+    assert after_first == 7            # 심볼 7개 1회씩
+    client.get("/api/market/overview")  # TTL 내 → 캐시
+    assert calls["n"] == after_first    # provider 재호출 없음

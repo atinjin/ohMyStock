@@ -122,21 +122,33 @@ class TossBroker:
         cash = float(bp.get("cashBuyingPower") or 0.0)
         return Account(equity=positions_value + cash, cash=cash)
 
-    def get_positions(self) -> dict[str, float]:
+    def get_holdings(self) -> list[dict]:
+        """보유 종목 [{symbol, name, value}]. quantity>0 + 통화 슬리브 일치만."""
         headers = self._acct_headers()
         holdings = self._result(self.client.get("/api/v1/holdings", headers=headers))
-        out = {}
         cur = self.currency.upper()
+        out = []
         for item in holdings.get("items", []):
             if float(item.get("quantity") or 0) <= 0:
                 continue
-            # 통화 슬리브 필터: self.currency(기본 usd)와 같은 종목만.
-            # (다통화 계좌에서 원·달러가 섞여 equity와 불일치하는 것을 방지)
             if str(item.get("currency", "")).upper() != cur:
                 continue
             mv = item.get("marketValue", {})
-            out[item["symbol"]] = float(mv.get("amount") or 0.0)
+            out.append({"symbol": item["symbol"], "name": item.get("name", ""),
+                        "value": float(mv.get("amount") or 0.0)})
         return out
+
+    def get_positions(self) -> dict[str, float]:
+        return {h["symbol"]: h["value"] for h in self.get_holdings()}
+
+    def exchange_rate(self, base: str = "USD", quote: str = "KRW") -> float:
+        """1 base = ? quote 환율(예: USD→KRW)."""
+        headers = self._acct_headers()
+        r = self._result(self.client.get(
+            "/api/v1/exchange-rate",
+            params={"baseCurrency": base, "quoteCurrency": quote},
+            headers=headers))
+        return float(r["rate"])
 
     # --- 시세 / 주문 --------------------------------------------------------
     def _last_price(self, symbol: str) -> float:
