@@ -67,12 +67,41 @@ _STRATEGY_DEFAULTS = {
 }
 
 
-_MARKET_TTL = 300  # 초
+_MARKET_TTL = 60  # 초
 
 
 def _default_market_provider(symbol):
-    today = date.today()
-    return _default_downloader(symbol, today - timedelta(days=365), today + timedelta(days=1))
+    """yfinance fast_info(현재가·전일종가·52주) + 스파크라인(인트라데이 우선, 없으면 일봉)."""
+    import yfinance as yf
+
+    t = yf.Ticker(symbol)
+    fi = t.fast_info
+    last = float(fi.last_price)
+    prev = float(fi.previous_close)
+    try:
+        year_high = float(fi.year_high)
+        year_low = float(fi.year_low)
+    except Exception:
+        year_high, year_low = last, last
+
+    sparkline = []
+    try:
+        intraday = yf.download(symbol, period="1d", interval="5m",
+                               progress=False, auto_adjust=True)
+        if getattr(intraday.columns, "nlevels", 1) > 1:
+            intraday.columns = intraday.columns.get_level_values(0)
+        if not intraday.empty:
+            sparkline = [float(c) for c in intraday["Close"].dropna().tolist()]
+    except Exception:
+        sparkline = []
+    if len(sparkline) < 2:
+        today = date.today()
+        daily = _default_downloader(symbol, today - timedelta(days=45),
+                                    today + timedelta(days=1))
+        sparkline = [float(c) for c in daily["close"].dropna().tolist()][-30:]
+
+    return {"last": last, "prev_close": prev, "year_high": year_high,
+            "year_low": year_low, "sparkline": sparkline}
 
 
 def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None,
