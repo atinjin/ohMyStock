@@ -259,3 +259,32 @@ def test_submit_order_raises_on_missing_symbol_no_post():
                           token_expires_at=datetime(2030, 1, 1))
     with pytest.raises(ValueError):
         broker.submit_order(Order(symbol="AAPL", side="buy", notional=500.0))
+
+
+def _mixed_currency_holdings_handler(request):
+    if request.url.path == "/api/v1/holdings":
+        return httpx.Response(200, json={"result": {
+            "marketValue": {"amount": {"usd": 4795.0, "krw": 1402000.0}},
+            "items": [
+                {"symbol": "AAPL", "quantity": 10, "currency": "USD",
+                 "marketValue": {"amount": 1795.0}},
+                {"symbol": "TSLA", "quantity": 1, "currency": "USD",
+                 "marketValue": {"amount": 3000.0}},
+                {"symbol": "005930", "quantity": 4, "currency": "KRW",
+                 "marketValue": {"amount": 1402000.0}},
+            ],
+        }})
+    raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+
+
+def test_get_positions_filters_to_usd_by_default():
+    # 다통화 계좌: 기본 usd → US 종목만(원화 종목 제외), 합이 USD equity 슬리브와 일치
+    broker = _make_broker(_mixed_currency_holdings_handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    assert broker.get_positions() == {"AAPL": 1795.0, "TSLA": 3000.0}
+
+
+def test_get_positions_krw_instance_returns_kr_only():
+    broker = _make_broker(_mixed_currency_holdings_handler, currency="krw",
+                          access_token="tok", token_expires_at=datetime(2030, 1, 1))
+    assert broker.get_positions() == {"005930": 1402000.0}

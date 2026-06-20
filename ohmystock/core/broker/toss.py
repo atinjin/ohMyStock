@@ -124,8 +124,13 @@ class TossBroker:
         headers = self._acct_headers()
         holdings = self._result(self.client.get("/api/v1/holdings", headers=headers))
         out = {}
+        cur = self.currency.upper()
         for item in holdings.get("items", []):
             if float(item.get("quantity") or 0) <= 0:
+                continue
+            # 통화 슬리브 필터: self.currency(기본 usd)와 같은 종목만.
+            # (다통화 계좌에서 원·달러가 섞여 equity와 불일치하는 것을 방지)
+            if str(item.get("currency", "")).upper() != cur:
                 continue
             mv = item.get("marketValue", {})
             out[item["symbol"]] = float(mv.get("amount") or 0.0)

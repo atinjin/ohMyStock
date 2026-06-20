@@ -77,7 +77,7 @@ class TossBroker:
   2. `holdings = GET /holdings` → 포지션 평가액 `pos = result.marketValue.amount[currency]`(usd/krw, 없으면 0).
   3. `cash = GET /buying-power?currency=CUR` → `result.cashBuyingPower`.
   4. `Account(equity=pos + cash, cash=cash)`.
-- `get_positions()`: `holdings.result.items[]` 중 `quantity > 0` → `{symbol: marketValue.amount}`. **단일 통화(US 바스켓) 계좌 가정** — 다통화 분리/FX는 §10 비범위.
+- `get_positions()`: `holdings.result.items[]` 중 `quantity > 0` **이고 `item.currency`(문자열 "USD"/"KRW")가 `self.currency`와 일치**하는 종목만 → `{symbol: marketValue.amount}`. 다통화 계좌에서 통화 슬리브를 분리해 equity(USD 슬리브)와 positions를 자기일관시킨다(실데이터 검증: positions 합 ≈ equity−cash). KR은 `TossBroker(currency="krw")` 인스턴스로 분리 운용. 통화 간 FX 합산은 §10 비범위.
 
 ## 6. 주문 흐름 (`submit_order`)
 
@@ -101,7 +101,7 @@ class TossBroker:
 - 토큰: `issue_token` → access_token 저장·만료시각 설정. `_ensure_token`이 만료 시 재발급(주입 now/만료로 검증).
 - 계좌해석: `account_seq` 미지정 → `GET /accounts`의 첫 BROKERAGE seq 사용, 이후 캐시(재호출 없음).
 - get_account: holdings(`marketValue.amount.usd`) + buying-power(`cashBuyingPower`) → `Account(equity=pos+cash, cash)`.
-- get_positions: items → `{symbol: marketValue.amount}`, quantity 0 제외(단일 통화 가정).
+- get_positions: items → `{symbol: marketValue.amount}`, quantity 0 제외 **+ 통화 필터**(usd 인스턴스는 US만, krw 인스턴스는 KR만).
 - 주문 안전: `lastPrice<=0` → 예외(주문 POST 0), 시세에 요청 종목 없음 → 예외(주문 POST 0).
 - 스모크 이중게이트(main 레벨): 인자 없음 → 주문 0 / `--order`만 → 거부(rc 2)·주문 0 / `--order`+`--i-understand-real-money` → 1건 제출.
 - 주문: `submit_order`가 `prices`로 floor 수량 계산, body(side BUY/SELL, orderType MARKET, quantity, clientOrderId) POST, `result.orderId` 확인. `qty<1` → POST 안 함(스킵). 주입 `client_order_id_fn`로 결정적 검증.
