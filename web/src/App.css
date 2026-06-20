@@ -948,13 +948,14 @@
 }
 
 .cal-cell-holiday {
-  background: var(--surface-2);
+  background: color-mix(in srgb, var(--fail) 10%, var(--surface-2));
   color: var(--text-dim);
 }
 
 .cal-cell-open {
-  background: transparent;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text);
+  font-weight: 600;
 }
 
 .cal-cell-half {
@@ -1018,13 +1019,13 @@
 }
 
 .cal-legend-dot-open {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 30%, var(--surface));
+  border: 1px solid var(--accent);
 }
 
 .cal-legend-dot-holiday {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--fail) 25%, var(--surface-2));
+  border: 1px solid var(--fail);
 }
 
 .cal-legend-dot-half {
