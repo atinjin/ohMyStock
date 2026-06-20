@@ -77,3 +77,62 @@ def test_live_preview_ok(tmp_path):
     assert "orders" in data
     assert "risk" in data
     assert "account_before" in data
+
+
+def _client_with_broker(tmp_path, broker_factory):
+    adapter = YFinanceAdapter(cache=ParquetCache(tmp_path), downloader=_fake_dl)
+    return TestClient(create_app(adapter=adapter, broker_factory=broker_factory))
+
+
+class _FakeBroker:
+    paper = True
+
+    def get_account(self):
+        from ohmystock.core.broker.base import Account
+        return Account(equity=10000000.0, cash=9000000.0)
+
+    def get_positions(self):
+        return {"005930": 354000.0}
+
+
+def test_broker_account_ok(tmp_path):
+    made = {"n": 0}
+
+    def factory(name):
+        made["n"] += 1
+        return _FakeBroker()
+
+    client = _client_with_broker(tmp_path, factory)
+    resp = client.get("/api/broker/account?broker=kis")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["broker"] == "kis"
+    assert body["mode"] == "paper"
+    assert body["equity"] == 10000000.0
+    assert body["cash"] == 9000000.0
+    assert body["positions"] == [{"symbol": "005930", "value": 354000.0}]
+    # 캐시: 같은 브로커 재조회 시 factory 는 1회만
+    client.get("/api/broker/account?broker=kis")
+    assert made["n"] == 1
+
+
+def test_broker_account_invalid_broker(tmp_path):
+    client = _client_with_broker(tmp_path, lambda name: _FakeBroker())
+    resp = client.get("/api/broker/account?broker=ibkr")
+    assert resp.status_code == 400
+
+
+def test_broker_account_error_returns_502(tmp_path):
+    class _BoomBroker:
+        paper = False
+
+        def get_account(self):
+            raise RuntimeError("키 없음")
+
+        def get_positions(self):
+            return {}
+
+    client = _client_with_broker(tmp_path, lambda name: _BoomBroker())
+    resp = client.get("/api/broker/account?broker=toss")
+    assert resp.status_code == 502
+    assert "키 없음" in resp.json()["detail"]

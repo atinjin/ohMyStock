@@ -261,3 +261,23 @@ export async function getSchedulerRuns(limit = 20): Promise<SchedulerRun[]> {
   if (!r.ok) throw new Error((await r.json() as { detail?: string }).detail ?? '실행 내역 조회 실패')
   return (await r.json() as { runs: SchedulerRun[] }).runs
 }
+
+// 실 계좌 현황 (읽기 전용)
+
+export interface BrokerAccount {
+  broker: string
+  mode: string
+  equity: number
+  cash: number
+  positions: { symbol: string; value: number }[]
+}
+
+export async function getBrokerAccount(
+  broker: 'kis' | 'toss',
+): Promise<BrokerAccount> {
+  const res = await fetch('/api/broker/account?broker=' + broker)
+  if (!res.ok) {
+    return parseError(res)
+  }
+  return (await res.json()) as BrokerAccount
+}
