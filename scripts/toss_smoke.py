@@ -35,6 +35,15 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _load_dotenv():
+    """현재 디렉터리 .env 를 환경변수로 로드(있으면). python-dotenv 없으면 무시."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv()
+
+
 def main(argv=None, broker=None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -45,6 +54,7 @@ def main(argv=None, broker=None) -> int:
         return 2
 
     if broker is None:
+        _load_dotenv()
         broker = TossBroker(currency=args.currency)
     print("[1] 토큰 발급 …")
     broker.issue_token()
