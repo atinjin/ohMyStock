@@ -49,13 +49,14 @@ def live_preview(symbols, start, end, adapter, strategy, config,
 
 
 def live_execute(symbols, start, end, adapter, strategy, config, *,
-                 mode="dry-run", env=None, broker=None,
+                 mode="dry-run", env=None, broker=None, broker_name=None,
                  max_position_weight=None) -> dict:
-    """모드 인지 실행. dry-run=PaperBroker 시뮬, live=AlpacaBroker 실주문."""
+    """모드 인지 실행. dry-run=PaperBroker 시뮬, live=선택 브로커 실주문."""
     resolved = resolve_mode(mode, env)
     bars = adapter.get_daily_bars(symbols, start, end)
     if broker is None:
-        broker = build_broker(resolved, cash=config.initial_capital, env=env)
+        broker = build_broker(resolved, cash=config.initial_capital, env=env,
+                              broker_name=broker_name)
 
     # 안전 계약: 보고된 모드와 실제 브로커 종류가 반드시 일치한다.
     # (실브로커를 dry-run으로 주입해 실주문이 'dry-run'으로 오기록되는 것을 차단)
@@ -89,6 +90,7 @@ def live_execute(symbols, start, end, adapter, strategy, config, *,
 def run_cli(argv=None, *, adapter=None, env=None) -> dict:
     parser = argparse.ArgumentParser(prog="ohmystock.live")
     parser.add_argument("--mode", choices=["dry-run", "live"], default=None)
+    parser.add_argument("--broker", choices=["alpaca", "toss", "kis"], default=None)
     parser.add_argument("--strategy", default="Momentum")
     parser.add_argument("--symbols", default="AAPL,MSFT,GOOGL,AMZN,META")
     parser.add_argument("--start", default="2020-01-01")
@@ -103,7 +105,8 @@ def run_cli(argv=None, *, adapter=None, env=None) -> dict:
     strategy = build_strategy(args.strategy, {})
     result = live_execute(
         args.symbols.split(","), date.fromisoformat(args.start),
-        date.fromisoformat(args.end), adapter, strategy, config, mode=mode, env=env)
+        date.fromisoformat(args.end), adapter, strategy, config,
+        mode=mode, env=env, broker_name=args.broker)
     print(result)
     return result
 
