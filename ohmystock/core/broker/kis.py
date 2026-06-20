@@ -25,12 +25,6 @@ _ORDER_PATH = "/uapi/domestic-stock/v1/trading/order-cash"
 _PRICE_TR_ID = "FHKST01010100"
 _REFRESH_MARGIN = timedelta(seconds=60)
 
-# 옛 상수 — Task 1에서 옛 _inquire_balance/submit_order가 임시로 참조한다.
-# Task 2가 _BALANCE_TR_ID 사용을 없애고, Task 3가 _BUY_TR_ID/_SELL_TR_ID를 없앤다.
-_BUY_TR_ID = "TTTC0802U"
-_SELL_TR_ID = "TTTC0801U"
-_BALANCE_TR_ID = "TTTC8434R"
-
 # kind -> (모의 tr_id, 실전 tr_id)
 _TR = {
     "buy": ("VTTC0802U", "TTTC0802U"),
@@ -161,25 +155,53 @@ class KISBroker:
         resp.raise_for_status()
         return resp.json()
 
-    def submit_order(self, order: Order) -> None:
-        """현금 주문 전송.
-
-        주의: KIS 주문은 수량(ORD_QTY) 기반이며 notional(금액) 기반이 아니다.
-        프로덕션에서는 실시간 호가로 notional -> 수량 변환이 반드시 필요하다.
-        이 어댑터에서는 단순화하여 side 에 따라 올바른 tr_id 헤더와 경로/메서드만
-        보장하고, notional 의도는 본문에 그대로 실어 보낸다.
-        """
-        tr_id = _BUY_TR_ID if order.side == "buy" else _SELL_TR_ID
-        cano = (self.account_no or "").split("-")[0]
-        body = {
-            "CANO": cano,
-            "PDNO": order.symbol,
-            "ORD_DVSN": "01",
-            "ORD_UNPR": "0",
-            "side": order.side,
-            "notional": order.notional,
-        }
-        resp = self.client.post(
-            _ORDER_PATH, headers=self._auth_headers(tr_id), json=body
+    def _current_price(self, symbol: str) -> float:
+        self._ensure_token()
+        resp = self.client.get(
+            _PRICE_PATH,
+            headers=self._auth_headers(_PRICE_TR_ID),
+            params={"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": symbol},
         )
         resp.raise_for_status()
+        price = float(resp.json()["output"]["stck_prpr"])
+        if price <= 0:
+            raise ValueError(f"KIS {symbol} 현재가 비정상({price}) — 주문 불가(정류 등)")
+        return price
+
+    def _hashkey(self, body: dict) -> str:
+        resp = self.client.post(
+            _HASHKEY_PATH,
+            json=body,
+            headers={
+                "appkey": self.app_key or "",
+                "appsecret": self.app_secret or "",
+                "content-type": "application/json",
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()["HASH"]
+
+    def submit_order(self, order: Order) -> None:
+        """시장가 현금 주문. notional을 현재가로 정수 수량 변환해 제출한다."""
+        self._ensure_token()
+        price = self._current_price(order.symbol)
+        qty = math.floor(order.notional / price)
+        if qty < 1:
+            return  # 1주 미만(소액)은 스킵
+        body = {
+            "CANO": self._cano,
+            "ACNT_PRDT_CD": self._acnt_prdt_cd,
+            "PDNO": order.symbol,
+            "ORD_DVSN": "01",       # 시장가
+            "ORD_QTY": str(qty),
+            "ORD_UNPR": "0",
+        }
+        hashkey = self._hashkey(body) if self.use_hashkey else None
+        tr_id = self._tr("buy") if order.side == "buy" else self._tr("sell")
+        resp = self.client.post(
+            _ORDER_PATH, json=body, headers=self._auth_headers(tr_id, hashkey)
+        )
+        resp.raise_for_status()
+        j = resp.json()
+        if j.get("rt_cd") != "0":
+            raise ValueError(f"KIS 주문 실패 [{j.get('rt_cd')}] {j.get('msg1')}")

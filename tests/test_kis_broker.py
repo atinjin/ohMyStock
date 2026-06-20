@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 
 import httpx
@@ -136,34 +137,99 @@ def test_get_positions_excludes_zero_value():
     assert positions == {"005930": 500000.0}
 
 
-def test_submit_order_buy_uses_buy_tr_id():
-    captured = {}
-
+def _price_and_order_handler(captured, price=10000.0, rt_cd="0"):
     def handler(request: httpx.Request) -> httpx.Response:
-        captured["method"] = request.method
-        captured["path"] = request.url.path
-        captured["tr_id"] = request.headers.get("tr_id")
-        return httpx.Response(200, json={"rt_cd": "0"})
+        if request.url.path == "/uapi/domestic-stock/v1/quotations/inquire-price":
+            assert request.headers.get("tr_id") == "FHKST01010100"
+            return httpx.Response(200, json={"output": {"stck_prpr": str(price)}})
+        if request.url.path == "/uapi/domestic-stock/v1/trading/order-cash":
+            captured["tr_id"] = request.headers.get("tr_id")
+            captured["body"] = json.loads(request.content.decode())
+            captured["hashkey"] = request.headers.get("hashkey")
+            return httpx.Response(200, json={"rt_cd": rt_cd, "msg1": "메시지"})
+        raise AssertionError(f"예상치 못한 경로 {request.url.path}")
+    return handler
 
-    broker = _make_broker(handler, access_token="tok")
-    broker.submit_order(Order(symbol="005930", side="buy", notional=100000.0))
 
-    assert captured["method"] == "POST"
-    assert captured["path"] == "/uapi/domestic-stock/v1/trading/order-cash"
-    assert captured["tr_id"] == "TTTC0802U"
-
-
-def test_submit_order_sell_uses_sell_tr_id():
+def test_submit_order_buy_floors_quantity_paper_tr_id():
     captured = {}
+    broker = _make_broker(_price_and_order_handler(captured, price=10000.0),
+                          access_token="tok", token_expires_at=datetime(2030, 1, 1))
+    broker.submit_order(Order(symbol="005930", side="buy", notional=35000.0))
+    assert captured["tr_id"] == "VTTC0802U"          # paper 기본
+    assert captured["body"]["PDNO"] == "005930"
+    assert captured["body"]["ORD_DVSN"] == "01"      # 시장가
+    assert captured["body"]["ORD_QTY"] == "3"        # floor(35000/10000)
+    assert captured["body"]["ORD_UNPR"] == "0"
+    assert captured["hashkey"] is None               # 기본 off
 
-    def handler(request: httpx.Request) -> httpx.Response:
-        captured["tr_id"] = request.headers.get("tr_id")
-        return httpx.Response(200, json={"rt_cd": "0"})
 
-    broker = _make_broker(handler, access_token="tok")
-    broker.submit_order(Order(symbol="005930", side="sell", notional=100000.0))
-
+def test_submit_order_sell_uses_live_tr_id_when_not_paper():
+    captured = {}
+    broker = _make_broker(_price_and_order_handler(captured, price=10000.0),
+                          paper=False, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    broker.submit_order(Order(symbol="005930", side="sell", notional=20000.0))
     assert captured["tr_id"] == "TTTC0801U"
+    assert captured["body"]["ORD_QTY"] == "2"
+
+
+def test_submit_order_skips_below_one_share():
+    seen = {"orders": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/uapi/domestic-stock/v1/quotations/inquire-price":
+            return httpx.Response(200, json={"output": {"stck_prpr": "100000"}})
+        if request.url.path == "/uapi/domestic-stock/v1/trading/order-cash":
+            seen["orders"] += 1
+            return httpx.Response(200, json={"rt_cd": "0"})
+        raise AssertionError("unexpected")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    broker.submit_order(Order(symbol="005930", side="buy", notional=50000.0))  # <1주
+    assert seen["orders"] == 0
+
+
+def test_submit_order_raises_on_rt_cd_failure():
+    captured = {}
+    broker = _make_broker(_price_and_order_handler(captured, rt_cd="1"),
+                          access_token="tok", token_expires_at=datetime(2030, 1, 1))
+    with pytest.raises(ValueError):
+        broker.submit_order(Order(symbol="005930", side="buy", notional=35000.0))
+
+
+def test_submit_order_raises_on_zero_price_no_order():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/uapi/domestic-stock/v1/quotations/inquire-price":
+            return httpx.Response(200, json={"output": {"stck_prpr": "0"}})
+        if request.url.path == "/uapi/domestic-stock/v1/trading/order-cash":
+            raise AssertionError("0가인데 주문이 나감")
+        raise AssertionError("unexpected")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    with pytest.raises(ValueError):
+        broker.submit_order(Order(symbol="005930", side="buy", notional=35000.0))
+
+
+def test_submit_order_with_hashkey():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/uapi/hashkey":
+            return httpx.Response(200, json={"HASH": "HASHED"})
+        if request.url.path == "/uapi/domestic-stock/v1/quotations/inquire-price":
+            return httpx.Response(200, json={"output": {"stck_prpr": "10000"}})
+        if request.url.path == "/uapi/domestic-stock/v1/trading/order-cash":
+            captured["hashkey"] = request.headers.get("hashkey")
+            return httpx.Response(200, json={"rt_cd": "0"})
+        raise AssertionError("unexpected")
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1), use_hashkey=True)
+    broker.submit_order(Order(symbol="005930", side="buy", notional=35000.0))
+    assert captured["hashkey"] == "HASHED"
 
 
 def test_env_key_fallback(monkeypatch):
