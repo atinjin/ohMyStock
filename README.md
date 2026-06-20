@@ -86,6 +86,20 @@ uv run python scripts/toss_smoke.py --order AAPL 50 --i-understand-real-money  #
 
 리스크 가드(`RiskGuard`)가 MDD 한도(-20%, 설정값)를 넘으면 신규 진입을 차단한다.
 
+### 한국투자증권(KIS) 어댑터
+
+`ohmystock/core/broker/kis.py::KISBroker` 는 KIS Open API를 Broker 프로토콜로 구현한다.
+`paper=True`(기본)면 모의투자 도메인+`V*` tr_id, `paper=False`면 실전이다. OAuth 토큰을
+자동 갱신하고, 주문은 현재가로 `floor(notional/현재가)` 정수 수량을 계산해 시장가로 제출한다.
+
+실 검증(모의투자 권장)은 사용자가 직접 실행한다:
+
+```bash
+export KIS_APP_KEY=...  KIS_APP_SECRET=...  KIS_ACCOUNT_NO=12345678-01
+uv run python scripts/kis_smoke.py            # 토큰+잔고+보유(안전)
+uv run python scripts/kis_smoke.py --order 005930 50000 --i-understand-real-money
+```
+
 ## 구조
 
 ```
