@@ -1,10 +1,15 @@
 """FastAPI 앱: 백테스트 엔진을 JSON으로 노출."""
 import calendar as _pycal
 import os
+import time
 from datetime import date
+from datetime import datetime, timezone, timedelta
 
 from fastapi import FastAPI, HTTPException
 from ohmystock.core.calendar.exchange import us_market_calendar
+from ohmystock.core.calendar.exchange import kr_market_calendar
+from ohmystock.core.data.yfinance_adapter import _default_downloader
+from ohmystock.market.overview import build_overview
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -62,7 +67,16 @@ _STRATEGY_DEFAULTS = {
 }
 
 
-def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None) -> FastAPI:
+_MARKET_TTL = 300  # 초
+
+
+def _default_market_provider(symbol):
+    today = date.today()
+    return _default_downloader(symbol, today - timedelta(days=365), today + timedelta(days=1))
+
+
+def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None,
+               market_provider=None) -> FastAPI:
     if adapter is None:
         adapter = YFinanceAdapter(cache=ParquetCache(".cache"))
 
@@ -72,6 +86,10 @@ def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None) -> 
     app.state.calendar = None  # lazy: /api/calendar 첫 요청 때 생성
     app.state.broker_factory = broker_factory or _read_only_broker
     app.state.brokers = {}
+    app.state.market_provider = market_provider or _default_market_provider
+    app.state.market_cache = {}
+    app.state.market_cal_kr = None
+    app.state.market_cal_us = None
 
     app.add_middleware(
         CORSMiddleware,
@@ -221,6 +239,31 @@ def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None) -> 
             "cash": acct.cash,
             "positions": [{"symbol": s, "value": v} for s, v in positions.items()],
         }
+
+    @app.get("/api/market/overview")
+    def market_overview():
+        """주요 지수·환율 시장 개요(읽기 전용, TTL 캐시)."""
+        cache = app.state.market_cache
+        now_ts = time.time()
+        if cache.get("data") is not None and now_ts - cache.get("ts", 0) < _MARKET_TTL:
+            return cache["data"]
+        if app.state.market_cal_kr is None:
+            app.state.market_cal_kr = kr_market_calendar()
+            app.state.market_cal_us = us_market_calendar()
+        try:
+            data = build_overview(
+                app.state.market_provider,
+                kr_cal=app.state.market_cal_kr,
+                us_cal=app.state.market_cal_us,
+                now=datetime.now(timezone.utc),
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=str(exc))
+        if not data["items"]:
+            raise HTTPException(status_code=502, detail="시장 데이터를 가져오지 못했습니다")
+        cache["data"] = data
+        cache["ts"] = now_ts
+        return data
 
     return app
 

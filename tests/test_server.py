@@ -136,3 +136,28 @@ def test_broker_account_error_returns_502(tmp_path):
     resp = client.get("/api/broker/account?broker=toss")
     assert resp.status_code == 502
     assert "키 없음" in resp.json()["detail"]
+
+
+def test_market_overview_endpoint_and_cache(tmp_path):
+    import pandas as pd
+    calls = {"n": 0}
+
+    def provider(symbol):
+        calls["n"] += 1
+        closes = [100.0] * 40 + [110.0, 121.0]
+        idx = pd.date_range("2025-01-01", periods=len(closes), freq="B")
+        return pd.DataFrame({"open": closes, "high": closes, "low": closes,
+                             "close": closes, "volume": [1] * len(closes)}, index=idx)
+
+    adapter = YFinanceAdapter(cache=ParquetCache(tmp_path), downloader=_fake_dl)
+    client = TestClient(create_app(adapter=adapter, market_provider=provider))
+    resp = client.get("/api/market/overview")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert isinstance(body["markets"]["us"]["open"], bool)
+    assert isinstance(body["markets"]["kr"]["open"], bool)
+    assert len(body["items"]) == 7
+    after_first = calls["n"]
+    assert after_first == 7            # 심볼 7개 1회씩
+    client.get("/api/market/overview")  # TTL 내 → 캐시
+    assert calls["n"] == after_first    # provider 재호출 없음
