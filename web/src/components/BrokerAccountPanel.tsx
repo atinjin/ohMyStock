@@ -110,6 +110,7 @@ export default function BrokerAccountPanel() {
               <thead>
                 <tr>
                   <th>종목</th>
+                  <th>종목명</th>
                   <th>평가금액</th>
                 </tr>
               </thead>
@@ -117,6 +118,7 @@ export default function BrokerAccountPanel() {
                 {data.positions.map((p) => (
                   <tr key={p.symbol}>
                     <td>{p.symbol}</td>
+                    <td>{p.name}</td>
                     <td style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt.format(p.value)}</td>
                   </tr>
                 ))}

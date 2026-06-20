@@ -91,8 +91,8 @@ class _FakeBroker:
         from ohmystock.core.broker.base import Account
         return Account(equity=10000000.0, cash=9000000.0)
 
-    def get_positions(self):
-        return {"005930": 354000.0}
+    def get_holdings(self):
+        return [{"symbol": "005930", "name": "삼성전자", "value": 354000.0}]
 
 
 def test_broker_account_ok(tmp_path):
@@ -110,7 +110,8 @@ def test_broker_account_ok(tmp_path):
     assert body["mode"] == "paper"
     assert body["equity"] == 10000000.0
     assert body["cash"] == 9000000.0
-    assert body["positions"] == [{"symbol": "005930", "value": 354000.0}]
+    assert body["positions"] == [
+        {"symbol": "005930", "name": "삼성전자", "value": 354000.0}]
     # 캐시: 같은 브로커 재조회 시 factory 는 1회만
     client.get("/api/broker/account?broker=kis")
     assert made["n"] == 1
@@ -129,8 +130,8 @@ def test_broker_account_error_returns_502(tmp_path):
         def get_account(self):
             raise RuntimeError("키 없음")
 
-        def get_positions(self):
-            return {}
+        def get_holdings(self):
+            return []
 
     client = _client_with_broker(tmp_path, lambda name: _BoomBroker())
     resp = client.get("/api/broker/account?broker=toss")

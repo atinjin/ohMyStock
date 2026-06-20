@@ -226,7 +226,7 @@ def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None,
                 b = app.state.broker_factory(broker)
                 app.state.brokers[broker] = b
             acct = b.get_account()
-            positions = b.get_positions()
+            positions = b.get_holdings()
         except HTTPException:
             raise
         except Exception as exc:
@@ -237,7 +237,7 @@ def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None,
             "mode": mode,
             "equity": acct.equity,
             "cash": acct.cash,
-            "positions": [{"symbol": s, "value": v} for s, v in positions.items()],
+            "positions": positions,
         }
 
     @app.get("/api/market/overview")

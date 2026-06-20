@@ -269,7 +269,7 @@ export interface BrokerAccount {
   mode: string
   equity: number
   cash: number
-  positions: { symbol: string; value: number }[]
+  positions: { symbol: string; name: string; value: number }[]
 }
 
 export async function getBrokerAccount(

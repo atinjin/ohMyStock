@@ -302,3 +302,19 @@ def test_send_does_not_retry_non_rate_limit_500():
     with pytest.raises(httpx.HTTPStatusError):
         broker.get_account()
     assert calls["n"] == 1          # 재시도 없음
+
+
+def test_get_holdings_includes_name():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "output1": [
+                {"pdno": "005930", "prdt_name": "삼성전자", "evlu_amt": "500000"},
+                {"pdno": "000660", "prdt_name": "SK하이닉스", "evlu_amt": "0"},
+            ],
+            "output2": [{"tot_evlu_amt": "1", "dnca_tot_amt": "1"}]})
+
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
+    assert broker.get_holdings() == [
+        {"symbol": "005930", "name": "삼성전자", "value": 500000.0}]
+    assert broker.get_positions() == {"005930": 500000.0}
