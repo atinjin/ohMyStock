@@ -1,5 +1,6 @@
 """FastAPI 앱: 백테스트 엔진을 JSON으로 노출."""
 import calendar as _pycal
+import os
 from datetime import date
 
 from fastapi import FastAPI, HTTPException
@@ -15,6 +16,29 @@ from ohmystock.live import live_preview
 from ohmystock.paper.service import PaperService
 from ohmystock.paper.sqlite_store import SqlitePaperStore
 from ohmystock.scheduler_store import SqliteSchedulerStore
+from ohmystock.core.broker.kis import KISBroker
+from ohmystock.core.broker.toss import TossBroker
+
+
+def _load_dotenv():
+    """현재 디렉터리 .env 를 환경변수로 로드(있으면). python-dotenv 없으면 무시."""
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv()
+
+
+def _read_only_broker(name: str, env=None):
+    """읽기 전용 브로커 생성(주문·실제-돈 게이트 없음). 키는 env 폴백."""
+    _load_dotenv()
+    env = os.environ if env is None else env
+    if name == "kis":
+        paper = env.get("OHMYSTOCK_KIS_PAPER", "1").strip().lower() not in ("0", "false", "no")
+        return KISBroker(paper=paper)
+    if name == "toss":
+        return TossBroker()
+    raise ValueError(f"알 수 없는 브로커: {name}")
 
 
 class BacktestRequest(BaseModel):
@@ -38,7 +62,7 @@ _STRATEGY_DEFAULTS = {
 }
 
 
-def create_app(adapter=None, paper_db="state/paper.db") -> FastAPI:
+def create_app(adapter=None, paper_db="state/paper.db", broker_factory=None) -> FastAPI:
     if adapter is None:
         adapter = YFinanceAdapter(cache=ParquetCache(".cache"))
 
@@ -46,6 +70,8 @@ def create_app(adapter=None, paper_db="state/paper.db") -> FastAPI:
     app.state.adapter = adapter
     app.state.paper_db = paper_db
     app.state.calendar = None  # lazy: /api/calendar 첫 요청 때 생성
+    app.state.broker_factory = broker_factory or _read_only_broker
+    app.state.brokers = {}
 
     app.add_middleware(
         CORSMiddleware,
@@ -170,6 +196,31 @@ def create_app(adapter=None, paper_db="state/paper.db") -> FastAPI:
         limit = max(1, min(limit, 200))
         store = SqliteSchedulerStore(app.state.paper_db)
         return {"runs": store.recent_runs(limit)}
+
+    @app.get("/api/broker/account")
+    def broker_account(broker: str):
+        """선택 브로커의 실 계좌(읽기 전용): equity/cash + 보유."""
+        if broker not in ("kis", "toss"):
+            raise HTTPException(status_code=400, detail="broker는 kis|toss 이어야 합니다")
+        try:
+            b = app.state.brokers.get(broker)
+            if b is None:
+                b = app.state.broker_factory(broker)
+                app.state.brokers[broker] = b
+            acct = b.get_account()
+            positions = b.get_positions()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=str(exc))
+        mode = "paper" if getattr(b, "paper", False) else "live"
+        return {
+            "broker": broker,
+            "mode": mode,
+            "equity": acct.equity,
+            "cash": acct.cash,
+            "positions": [{"symbol": s, "value": v} for s, v in positions.items()],
+        }
 
     return app
 
