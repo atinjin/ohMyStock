@@ -36,7 +36,10 @@ function App() {
   const [fxRate, setFxRate] = useState<number | null>(null)
 
   useEffect(() => {
-    getFx().then((f) => setFxRate(f.rate)).catch(() => setFxRate(null))
+    const load = () => getFx().then((f) => setFxRate(f.rate)).catch(() => setFxRate(null))
+    load()
+    const id = setInterval(load, 300_000) // 5분마다 갱신(백엔드 TTL과 일치)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
