@@ -42,6 +42,21 @@ def test_issue_token_sets_token_and_expiry():
     assert "client_id=CID" in captured["body"]
 
 
+def test_issue_token_surfaces_error_body():
+    # 토큰 발급 실패 시 상태코드 + 응답 본문(원인)을 에러 메시지로 노출
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(403, json={
+            "error": "access_denied",
+            "error_description": "IP address not allowed"})
+
+    broker = _make_broker(handler)
+    with pytest.raises(ValueError) as exc:
+        broker.issue_token()
+    msg = str(exc.value)
+    assert "403" in msg
+    assert "IP address not allowed" in msg
+
+
 def test_env_credential_fallback(monkeypatch):
     monkeypatch.setenv("TOSS_CLIENT_ID", "env_id")
     monkeypatch.setenv("TOSS_CLIENT_SECRET", "env_secret")
