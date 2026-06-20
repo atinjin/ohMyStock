@@ -141,11 +141,11 @@
 ## 6. 장기 로드맵 (운영·확장)
 
 ### 🟡 대시보드 개선 (시장 개요·실계좌·캘린더) ([spec](superpowers/specs/2026-06-20-dashboard-improvements-design.md))
-**v1** (외부 키 불필요):
-- [ ] 시장 개요 패널 — 주요 지수·환율(yfinance: `^IXIC`·`^GSPC`·`^DJI`·`^VIX`·`^KS11`·`USDKRW=X`·`NQ=F`) 카드(값·등락·미니 스파크라인) + 국내/해외 장 상태(XNYS/XKRX) + 계산형 배지(52주 고저 근접·고변동성). 상승=빨강/하락=파랑
-- [ ] 실 계좌 보유에 종목명 표시(KIS `prdt_name` / TOSS `name`, `get_holdings`)
-- [ ] USD 평가금액 원화 환산 참고(TOSS `exchange-rate`)
-- [ ] 캘린더 거래일/휴장 색 구분 강화(CSS)
+**v1** (외부 키 불필요) — 완료 ([plan](superpowers/plans/2026-06-20-dashboard-improvements.md)):
+- [x] 시장 개요 패널 — 주요 지수·환율(yfinance: `^IXIC`·`^GSPC`·`^DJI`·`^VIX`·`^KS11`·`USDKRW=X`·`NQ=F`) 카드(값·등락·SVG 스파크라인) + 국내/해외 장 상태(XNYS/XKRX) + 계산형 배지(52주 고저 근접·고변동성). 상승=빨강/하락=파랑. `GET /api/market/overview`(TTL 캐시). 실 서버 검증(Toss 위젯과 값 일치)
+- [x] 실 계좌 보유에 종목명 표시(KIS `prdt_name` / TOSS `name`, `get_holdings`)
+- [x] USD 평가금액 원화 환산 참고(TOSS `exchange-rate`)
+- [x] 캘린더 거래일/휴장 색 구분 강화(CSS)
 
 **v2** (키 필요):
 - [ ] 뉴스 레이어 — US(yfinance/Finnhub) · KR(네이버 검색 API) 최근 헤드라인 → (선택) LLM 한글 요약 태그(Anthropic 키). 시장 개요 배지를 실제 뉴스 맥락으로
