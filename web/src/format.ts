@@ -26,3 +26,16 @@ export function koreanAmount(n: number): string {
   }
   return parts.join(' ') + '원'
 }
+
+/** USD 통화 포맷 (예: 10000 -> "$10,000"). */
+export function usd(n: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', maximumFractionDigits: 0,
+  }).format(n)
+}
+
+/** USD 금액의 원화 환산 참고 (예: " ≈ 1,531만원"). rate 없으면 빈 문자열. */
+export function approxKrw(usdAmount: number, rate: number | null): string {
+  if (!rate || !Number.isFinite(usdAmount)) return ''
+  return ' ≈ ' + koreanAmount(usdAmount * rate)
+}

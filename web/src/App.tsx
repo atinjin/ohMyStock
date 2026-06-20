@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import {
+  getFx,
   getLivePreview,
   getStrategies,
   runBacktest,
@@ -9,6 +10,7 @@ import {
   type Report,
   type StrategyInfo,
 } from './api'
+import { usd, approxKrw } from './format'
 import BacktestForm from './components/BacktestForm'
 import CalendarPanel from './components/CalendarPanel'
 import { ConceptProvider } from './components/ConceptModal'
@@ -21,12 +23,6 @@ import SchedulerRunsPanel from './components/SchedulerRunsPanel'
 import BrokerAccountPanel from './components/BrokerAccountPanel'
 import MarketOverviewPanel from './components/MarketOverviewPanel'
 
-const currency = new Intl.NumberFormat('ko-KR', {
-  style: 'currency',
-  currency: 'KRW',
-  maximumFractionDigits: 0,
-})
-
 function App() {
   const [strategies, setStrategies] = useState<StrategyInfo[]>([])
   const [strategiesError, setStrategiesError] = useState<string | null>(null)
@@ -37,6 +33,11 @@ function App() {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [lastRequest, setLastRequest] = useState<BacktestRequest | null>(null)
+  const [fxRate, setFxRate] = useState<number | null>(null)
+
+  useEffect(() => {
+    getFx().then((f) => setFxRate(f.rate)).catch(() => setFxRate(null))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -105,6 +106,7 @@ function App() {
             loading={loading || previewLoading}
             onRun={handleRun}
             onPreview={handlePreview}
+            fxRate={fxRate}
           />
         </aside>
 
@@ -154,7 +156,10 @@ function App() {
                 <div className="summary-equity">
                   <span className="summary-equity-label">최종 자산</span>
                   <span className="summary-equity-value">
-                    {currency.format(report.final_equity)}
+                    {usd(report.final_equity)}
+                    <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 400 }}>
+                      {approxKrw(report.final_equity, fxRate)}
+                    </span>
                   </span>
                 </div>
               </div>

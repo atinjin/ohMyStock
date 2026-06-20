@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
+  getFx,
   getPaperState,
   getPaperHistory,
   initPaper,
@@ -10,7 +11,7 @@ import {
   type PaperHistory,
 } from '../api'
 import EquityChart from './EquityChart'
-import { withCommas } from '../format'
+import { usd, approxKrw } from '../format'
 
 interface Props {
   request: BacktestRequest | null
@@ -21,6 +22,11 @@ export default function PaperPanel({ request }: Props) {
   const [history, setHistory] = useState<PaperHistory | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fxRate, setFxRate] = useState<number | null>(null)
+
+  useEffect(() => {
+    getFx().then((f) => setFxRate(f.rate)).catch(() => setFxRate(null))
+  }, [])
 
   async function refresh() {
     try {
@@ -114,20 +120,17 @@ export default function PaperPanel({ request }: Props) {
             <div className="metric-card">
               <div className="metric-label">현재 자산</div>
               <div className="metric-value">
-                {withCommas(state.equity ?? 0)}원
+                {usd(state.equity ?? 0)}
+                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{approxKrw(state.equity ?? 0, fxRate)}</span>
               </div>
             </div>
             <div className="metric-card">
               <div className="metric-label">현금</div>
-              <div className="metric-value">
-                {withCommas(state.cash ?? 0)}원
-              </div>
+              <div className="metric-value">{usd(state.cash ?? 0)}</div>
             </div>
             <div className="metric-card">
               <div className="metric-label">고점</div>
-              <div className="metric-value">
-                {withCommas(state.peak_equity ?? 0)}원
-              </div>
+              <div className="metric-value">{usd(state.peak_equity ?? 0)}</div>
             </div>
           </div>
 
@@ -239,7 +242,7 @@ export default function PaperPanel({ request }: Props) {
                           </span>
                         </td>
                         <td className="orders-amount">
-                          {withCommas(trade.notional)}원
+                          {usd(trade.notional)}
                         </td>
                       </tr>
                     ))}
