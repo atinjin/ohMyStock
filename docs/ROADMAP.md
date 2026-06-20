@@ -69,7 +69,9 @@
 - [x] notional → 정수 수량 변환(현재가 `floor`, 1주 미만·0가·미상장 안전 처리) + `clientOrderId`
 - [x] `get_account`/`get_positions`/`submit_order`(시장가) — `TossBroker`, 오프라인 MockTransport 19 테스트
 - [x] 사용자용 실 스모크 스크립트(`scripts/toss_smoke.py`, 실주문 이중 게이트) ([spec](superpowers/specs/2026-06-20-toss-broker-integration-design.md) · [plan](superpowers/plans/2026-06-20-toss-broker-integration.md))
-- [ ] (후속) broker_select/live 모드 배선, KR 종목·다통화, 정정/취소
+- [x] **실 API 읽기 검증** — 토큰·계좌(equity)·보유 조회 실 계좌로 확인. 다통화(KR+US) 계좌 대응: `get_positions` 통화 슬리브 필터(positions 합 ≈ equity 검증). IP 허용목록 필요(Cloudflare 403)
+- [x] broker_select/live 배선(`--broker toss`, 실제-돈 동의 게이트)
+- [ ] (후속) KR 종목 운용(`currency="krw"`), 정정/취소, 실주문 체결 검증(평일 장중)
 
 ### 🟢 KIS 어댑터 실연동
 인터페이스만 있던 `KISBroker`를 프로덕션급으로 재작성. **모의투자(paper) 기본**, `paper=False`만 실전. ([spec](superpowers/specs/2026-06-20-kis-real-integration-design.md) · [plan](superpowers/plans/2026-06-20-kis-real-integration.md))
@@ -77,8 +79,10 @@
 - [x] 실 응답 스키마 — 잔고(output1/output2 + 쿼리 파라미터)·현재가(`stck_prpr`)·주문(`rt_cd` 판정)
 - [x] 주문 보안 필드 hashkey 처리(옵션, 기본 off)
 - [x] notional → 정수 수량 변환(현재가 `floor`, 1주 미만·0가 안전 처리) + 모의/실전 tr_id 분기
-- [x] 사용자용 모의투자 스모크 스크립트(`scripts/kis_smoke.py`, 실주문 이중 게이트) — 오프라인 MockTransport 16 테스트
-- [ ] (후속) 사용자 실 모의투자 계좌 end-to-end 실행, broker_select/live 배선
+- [x] 사용자용 모의투자 스모크 스크립트(`scripts/kis_smoke.py`, 실주문 이중 게이트) — 오프라인 MockTransport 18 테스트
+- [x] **실 모의투자 검증** — 토큰·잔고(1천만원)·보유·주문 경로 실 API 확인(주말 `모의투자 영업일이 아닙니다` 거부 응답까지 처리). 토큰 캐시(`state/`, 분당 발급제한 회피) + 초당 제한(`EGW00201`) 재시도(`_send`, 실행 전 거부라 주문도 안전)
+- [x] broker_select/live 배선(`--broker kis`, 모의 기본·실전은 동의 게이트)
+- [ ] (후속) 실주문 체결 검증(평일 장중), 실전(`paper=False`) 운용
 
 ### 🟡 거래 알림
 - [ ] `Notifier` 인터페이스
