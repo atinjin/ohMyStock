@@ -140,8 +140,23 @@ class KISBroker:
         }
 
     def _inquire_balance(self) -> dict:
+        self._ensure_token()
         resp = self.client.get(
-            _BALANCE_PATH, headers=self._auth_headers(_BALANCE_TR_ID)
+            _BALANCE_PATH,
+            headers=self._auth_headers(self._tr("balance")),
+            params={
+                "CANO": self._cano,
+                "ACNT_PRDT_CD": self._acnt_prdt_cd,
+                "AFHR_FLPR_YN": "N",
+                "OFL_YN": "",
+                "INQR_DVSN": "02",
+                "UNPR_DVSN": "01",
+                "FUND_STTL_ICLD_YN": "N",
+                "FNCG_AMT_AUTO_RDPT_YN": "N",
+                "PRCS_DVSN": "00",
+                "CTX_AREA_FK100": "",
+                "CTX_AREA_NK100": "",
+            },
         )
         resp.raise_for_status()
         return resp.json()

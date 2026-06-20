@@ -95,22 +95,26 @@ def test_account_no_split():
     assert broker._acnt_prdt_cd == "01"
 
 
-def test_get_account_parses_output2():
+def test_get_account_parses_output2_with_params():
+    captured = {}
+
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.method == "GET"
         assert request.url.path == "/uapi/domestic-stock/v1/trading/inquire-balance"
-        return httpx.Response(
-            200,
-            json={
-                "output1": [],
-                "output2": [{"tot_evlu_amt": "1000000", "dnca_tot_amt": "250000"}],
-            },
-        )
+        captured["tr_id"] = request.headers.get("tr_id")
+        captured["CANO"] = request.url.params.get("CANO")
+        captured["INQR_DVSN"] = request.url.params.get("INQR_DVSN")
+        return httpx.Response(200, json={
+            "output1": [],
+            "output2": [{"tot_evlu_amt": "1000000", "dnca_tot_amt": "250000"}]})
 
-    broker = _make_broker(handler, access_token="tok")
+    broker = _make_broker(handler, access_token="tok",
+                          token_expires_at=datetime(2030, 1, 1))
     account = broker.get_account()
-
     assert account == Account(equity=1000000.0, cash=250000.0)
+    assert captured["tr_id"] == "VTTC8434R"     # paper 기본
+    assert captured["CANO"] == "12345678"
+    assert captured["INQR_DVSN"] == "02"
 
 
 def test_get_positions_excludes_zero_value():
