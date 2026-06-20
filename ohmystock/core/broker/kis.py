@@ -7,6 +7,7 @@ KIS_APP_KEY / KIS_APP_SECRET / KIS_ACCOUNT_NO 폴백을 지원한다.
 
 import math
 import os
+import time
 from datetime import datetime, timedelta
 
 import httpx
@@ -49,6 +50,9 @@ class KISBroker:
         token_expires_at=None,
         use_hashkey=False,
         now=None,
+        sleep=None,
+        max_retries=3,
+        retry_delay=0.5,
     ):
         self.app_key = app_key or os.environ.get("KIS_APP_KEY")
         self.app_secret = app_secret or os.environ.get("KIS_APP_SECRET")
@@ -58,9 +62,31 @@ class KISBroker:
         self.access_token = access_token
         self.token_expires_at = token_expires_at
         self._now = now or datetime.now
+        self._sleep = sleep or time.sleep
+        self._max_retries = max_retries
+        self._retry_delay = retry_delay
         if base_url is None:
             base_url = _PAPER_URL if paper else _LIVE_URL
         self.client = client or httpx.Client(base_url=base_url)
+
+    def _send(self, method: str, path: str, **kwargs) -> httpx.Response:
+        """KIS 호출. EGW00201(초당 거래건수 초과) 시 짧게 대기 후 재시도한다.
+
+        EGW00201은 요청이 실행 전에 거부된 것이라 주문(POST)에도 재시도가 안전하다
+        (체결 중복 위험 없음). 다른 오류는 즉시 반환해 호출부가 처리한다.
+        """
+        resp = self.client.request(method, path, **kwargs)
+        for _ in range(self._max_retries):
+            if resp.status_code != 500:
+                break
+            try:
+                if resp.json().get("msg_cd") != "EGW00201":
+                    break
+            except Exception:
+                break
+            self._sleep(self._retry_delay)
+            resp = self.client.request(method, path, **kwargs)
+        return resp
 
     def _tr(self, kind: str) -> str:
         paper_id, live_id = _TR[kind]
@@ -135,7 +161,8 @@ class KISBroker:
 
     def _inquire_balance(self) -> dict:
         self._ensure_token()
-        resp = self.client.get(
+        resp = self._send(
+            "GET",
             _BALANCE_PATH,
             headers=self._auth_headers(self._tr("balance")),
             params={
@@ -157,7 +184,8 @@ class KISBroker:
 
     def _current_price(self, symbol: str) -> float:
         self._ensure_token()
-        resp = self.client.get(
+        resp = self._send(
+            "GET",
             _PRICE_PATH,
             headers=self._auth_headers(_PRICE_TR_ID),
             params={"FID_COND_MRKT_DIV_CODE": "J", "FID_INPUT_ISCD": symbol},
@@ -198,8 +226,8 @@ class KISBroker:
         }
         hashkey = self._hashkey(body) if self.use_hashkey else None
         tr_id = self._tr("buy") if order.side == "buy" else self._tr("sell")
-        resp = self.client.post(
-            _ORDER_PATH, json=body, headers=self._auth_headers(tr_id, hashkey)
+        resp = self._send(
+            "POST", _ORDER_PATH, json=body, headers=self._auth_headers(tr_id, hashkey)
         )
         resp.raise_for_status()
         j = resp.json()
